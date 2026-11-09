@@ -4024,10 +4024,11 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         const action=interaction.options.getString('action') || 'browse';
         const items=[{id:'common_crystal',name:'Common Crystal',emoji:'🔹',rarity:'Common',price:500},{id:'rare_phoenix',name:'Rare Phoenix',emoji:'🔥',rarity:'Rare',price:2500},{id:'epic_dragon',name:'Epic Dragon',emoji:'🐉',rarity:'Epic',price:10000},{id:'legendary_crown',name:'Legendary Crown',emoji:'👑',rarity:'Legendary',price:50000}];
         if(action==='buy') {
-          const id=interaction.options.getString('item'); if(!id) return interaction.reply({content:'Choose an item to buy.',ephemeral:true});
+          const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+          const id=interaction.options.getString('item'); if(!id) return sendPlainReply({content:'Choose an item to buy.',ephemeral:true});
           const item=items.find(x=>x.id===id); const result=db.buyCollectible(guild.id,interaction.user.id,item.id,item.price);
-          if(!result.ok) return interaction.reply({content:`Not enough coins. Your wallet has 🪙 ${result.balance.toLocaleString()}.`,ephemeral:true});
-          return interaction.reply({content:`✨ Purchased ${item.emoji} **${item.name}** (${item.rarity}) for 🪙 ${item.price.toLocaleString()}!`,ephemeral:true});
+          if(!result.ok) return sendPlainReply({content:`Not enough coins. Your wallet has 🪙 ${result.balance.toLocaleString()}.`,ephemeral:true});
+          return sendPlainReply({content:`✨ Purchased ${item.emoji} **${item.name}** (${item.rarity}) for 🪙 ${item.price.toLocaleString()}!`,ephemeral:true});
         }
         if(action==='mine') {
           const rows=db.getCollectibles(guild.id,interaction.user.id); const desc=rows.length?rows.map(row=>{const i=items.find(x=>x.id===row.collectible_id);return `${i?.emoji||'💎'} **${i?.name||row.collectible_id}** · ${i?.rarity||'Collectible'} × ${row.quantity}`;}).join('\n'):'Your collection is empty. Use `/collectibles action:buy` to collect your first item.';
