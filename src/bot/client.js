@@ -3534,7 +3534,8 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         }
         if (interaction.options.getString('action') === 'off') {
           db.clearAiChannel(guildForAi.id);
-          return interaction.reply({ content: '✅ AI chat is off.', ephemeral: true });
+          const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+          return sendPlainReply({ content: '✅ AI chat is off.', ephemeral: true });
         }
         const aiChannel = interaction.options.getChannel('channel') || interaction.channel;
         if (!aiChannel || !aiChannel.isTextBased()) return interaction.reply({ content: 'Pick a text or announcement channel.', ephemeral: true });
