@@ -3876,7 +3876,8 @@ ${failed} could not receive coins (balance limit).` : ''}`;
             return interaction.reply({ content: message, ephemeral: true });
           }
           writeLog(guildForGive, 'devgive', user.id, `${amount} coins · ${reason}`, interaction.user.id);
-          return interaction.reply({
+          const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+          return sendPlainReply({
             content: `🏦 Developer transfer complete: **🪙 ${amount.toLocaleString()} coins** credited to <@${user.id}>. Their public balance is now **🪙 ${result.balance.toLocaleString()}**.`,
             ephemeral: true
           });
