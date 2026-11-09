@@ -4007,12 +4007,14 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         if (action === 'interest') {
           const result = db.claimBankInterest(guild.id, interaction.user.id);
           if (!result.ok) return interaction.reply({content: result.reason==='empty' ? '🏦 Deposit coins first to earn interest.' : `⏳ Interest is not ready yet. Available <t:${Math.floor(result.next/1000)}:R>.`,ephemeral:true});
-          return interaction.reply({content:`💹 Bank interest claimed: **🪙 ${result.interest.toLocaleString()}** (${result.rate}% total rate). New bank balance: **🪙 ${result.bank.toLocaleString()}**.`,ephemeral:true});
+          const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+          return sendPlainReply({content:`💹 Bank interest claimed: **🪙 ${result.interest.toLocaleString()}** (${result.rate}% total rate). New bank balance: **🪙 ${result.bank.toLocaleString()}**.`,ephemeral:true});
         }
-        if (!amount) return interaction.reply({content:'Enter an amount for deposit or withdrawal.',ephemeral:true});
+        const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        if (!amount) return sendPlainReply({content:'Enter an amount for deposit or withdrawal.',ephemeral:true});
         const result=db.bankMove(guild.id,interaction.user.id,action,amount);
-        if(!result.ok) return interaction.reply({content:result.reason==='funds' ? `Not enough wallet coins. Wallet: 🪙 ${result.wallet.toLocaleString()}.` : result.reason==='bank_funds' ? `Not enough bank savings. Bank: 🪙 ${result.bank.toLocaleString()}.` : 'Enter a valid amount.',ephemeral:true});
-        return interaction.reply({content:`${action==='deposit'?'📥 Deposited':'📤 Withdrew'} **🪙 ${amount.toLocaleString()}**. Wallet: **🪙 ${result.wallet.toLocaleString()}** · Bank: **🪙 ${result.bank.toLocaleString()}**.`,ephemeral:true});
+        if(!result.ok) return sendPlainReply({content:result.reason==='funds' ? `Not enough wallet coins. Wallet: 🪙 ${result.wallet.toLocaleString()}.` : result.reason==='bank_funds' ? `Not enough bank savings. Bank: 🪙 ${result.bank.toLocaleString()}.` : 'Enter a valid amount.',ephemeral:true});
+        return sendPlainReply({content:`${action==='deposit'?'📥 Deposited':'📤 Withdrew'} **🪙 ${amount.toLocaleString()}**. Wallet: **🪙 ${result.wallet.toLocaleString()}** · Bank: **🪙 ${result.bank.toLocaleString()}**.`,ephemeral:true});
       }
 
       if (commandName === 'collectibles') {
