@@ -2528,6 +2528,10 @@ const fishWaitMessages = new Map();
         const messages = { name: 'Use 3–24 letters, numbers, spaces, underscores, or hyphens.', member: 'You are already in a guild.', taken: 'That guild name is already taken in this server.', funds: `Creating a guild costs 500 coins. Your balance is ${(result.balance || 0).toLocaleString()} coins.` };
         const replyPayload = { content: result.ok ? `🏰 Guild **${result.guild.name}** created! **500 coins** were deducted. You are its leader. Use **/guild** to manage it.` : `❌ ${messages[result.reason] || 'Could not create that guild.'}`, ephemeral: true };
         const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        if (!result.ok && result.reason === 'funds') {
+          const sendPlainFollowUp = interaction.__v2OriginalMethods?.followUp || interaction.followUp.bind(interaction);
+          return sendPlainFollowUp(replyPayload);
+        }
         return sendPlainReply(replyPayload);
       }
       if (interaction.isModalSubmit() && interaction.customId === 'zeron_guild_invite_modal') {
