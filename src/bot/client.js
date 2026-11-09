@@ -3333,7 +3333,8 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           ? '<#' + saved.xp_channel_id + '>'
           : 'the channel where the member earns XP';
 
-        return interaction.reply({
+        const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        return sendPlainReply({
           content: 'XP earning and level-up announcements are now **' +
             (enabled ? 'ENABLED' : 'DISABLED') + '**.' +
             '\n**Announcement channel:** ' + channelText +
