@@ -530,6 +530,11 @@ const LEGACY_V2_EXCLUSIONS = new Set([
   // Example: 'command:play', 'component:zeron_slots_again', 'message:123456789012345678'
 ]);
 
+function isAccessRestrictionPayload(payload) {
+  const content = typeof payload === 'string' ? payload : payload && typeof payload.content === 'string' ? payload.content : '';
+  return /only\\s+.{1,100}\\s+(?:can use|may use|is allowed to use)|only\\s+.{1,100}\\s+can\\s+(?:run|execute|use)|you need\\s+.{1,100}\\s+permission|requires?\\s+.{1,100}\\s+permission|not authorized to use/i.test(content);
+}
+
 function v2Proxy(interaction) {
   const exclusionKeys = [];
   if (interaction.commandName) exclusionKeys.push('command:' + interaction.commandName);
@@ -546,19 +551,19 @@ function v2Proxy(interaction) {
   // Only wrap the methods this kind of interaction actually has (modal submits have no update).
   if (typeof interaction.reply === 'function') {
     const reply = interaction.reply.bind(interaction);
-    interaction.reply = payload => reply(toV2Payload(payload, !!(payload && typeof payload === 'object' && payload.ephemeral)));
+    interaction.reply = payload => isAccessRestrictionPayload(payload) ? reply(payload) : reply(toV2Payload(payload, !!(payload && typeof payload === 'object' && payload.ephemeral)));
   }
   if (typeof interaction.update === 'function') {
     const update = interaction.update.bind(interaction);
-    interaction.update = payload => update(toV2Payload(payload, false));
+    interaction.update = payload => isAccessRestrictionPayload(payload) ? update(payload) : update(toV2Payload(payload, false));
   }
   if (typeof interaction.editReply === 'function') {
     const editReply = interaction.editReply.bind(interaction);
-    interaction.editReply = payload => editReply(toV2Payload(payload, false));
+    interaction.editReply = payload => isAccessRestrictionPayload(payload) ? editReply(payload) : editReply(toV2Payload(payload, false));
   }
   if (typeof interaction.followUp === 'function') {
     const followUp = interaction.followUp.bind(interaction);
-    interaction.followUp = payload => followUp(toV2Payload(payload, !!(payload && typeof payload === 'object' && payload.ephemeral)));
+    interaction.followUp = payload => isAccessRestrictionPayload(payload) ? followUp(payload) : followUp(toV2Payload(payload, !!(payload && typeof payload === 'object' && payload.ephemeral)));
   }
   // A deferred reply must already carry the V2 flag, or the card cannot be shown when it is edited later.
   if (typeof interaction.deferReply === 'function') {
