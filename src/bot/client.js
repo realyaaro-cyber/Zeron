@@ -1592,7 +1592,7 @@ function createClient(db) {
     if (now - last < 3000) return;
     aiCooldown.set(conversationKey, now);
     if (!(process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY)) {
-      return message.reply(toV2Payload({ content: 'The AI assistant is not configured yet. The bot owner needs to add AI_API_KEY.', allowedMentions: { repliedUser: false, parse: [] } })).catch(() => {});
+      return message.reply({ content: 'The AI assistant is not configured yet. The bot owner needs to add AI_API_KEY.', allowedMentions: { repliedUser: false, parse: [] } }).catch(() => {});
     }
 
     const conversation = history && now - history.updatedAt <= AI_CONTEXT_TTL ? history : { messages: [], updatedAt: now, activeUntil: now + 5 * 60 * 1000 };
