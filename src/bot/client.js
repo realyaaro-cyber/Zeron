@@ -3539,7 +3539,8 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         const aiChannel = interaction.options.getChannel('channel') || interaction.channel;
         if (!aiChannel || !aiChannel.isTextBased()) return interaction.reply({ content: 'Pick a text or announcement channel.', ephemeral: true });
         db.setAiChannel(guildForAi.id, aiChannel.id);
-        return interaction.reply({
+        const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        return sendPlainReply({
           content: `✅ AI chat is on in ${aiChannel}. I'll chat naturally with members in that channel.`,
           ephemeral: true
         });
