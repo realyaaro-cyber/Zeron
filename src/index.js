@@ -16,7 +16,7 @@ if (process.env.SESSION_SECRET.length < 32) {
   console.error('SESSION_SECRET must be at least 32 characters.');
   process.exit(1);
 }
-const dbPath = path.resolve(process.env.DATABASE_PATH || './data/nexora.sqlite');
+const dbPath = path.resolve(process.env.DATABASE_PATH || './data/zeron.sqlite');
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 const db = initializeDatabase(dbPath);
 const client = createClient(db);
