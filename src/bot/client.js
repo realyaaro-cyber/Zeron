@@ -524,7 +524,18 @@ function toV2Payload(payload, ephemeral) {
 }
 
 // Replaces reply, update, and editReply for one interaction so its messages go out as Components V2.
+// Add a key here later to keep one response family on legacy embeds while V2 stays global.
+// Supported keys: command:<slash-command>, component:<custom-id-prefix>, message:<Discord-message-id>.
+const LEGACY_V2_EXCLUSIONS = new Set([
+  // Example: 'command:play', 'component:zeron_slots_again', 'message:123456789012345678'
+]);
+
 function v2Proxy(interaction) {
+  const exclusionKeys = [];
+  if (interaction.commandName) exclusionKeys.push('command:' + interaction.commandName);
+  if (typeof interaction.customId === 'string') exclusionKeys.push('component:' + interaction.customId.split(':')[0]);
+  if (interaction.message?.id) exclusionKeys.push('message:' + interaction.message.id);
+  if (exclusionKeys.some(key => LEGACY_V2_EXCLUSIONS.has(key))) return;
   if (interaction.__v2Proxied) return;
   interaction.__v2Proxied = true;
   // Only wrap the methods this kind of interaction actually has (modal submits have no update).
@@ -2289,6 +2300,9 @@ const fishWaitMessages = new Map();
   });
 
   client.on(Events.InteractionCreate, async interaction => {
+    // Global Components V2: all bot interaction responses and component updates use V2 by default.
+    // Legacy exceptions are centralized in LEGACY_V2_EXCLUSIONS above for future per-message opt-outs.
+    v2Proxy(interaction);
     // Components V2 is enabled only for the specific flows that need it.
     // Ordinary commands such as /rank must keep their native Discord response payloads.
     try {
