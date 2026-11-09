@@ -540,7 +540,7 @@ function v2Proxy(interaction) {
   interaction.__v2Proxied = true;
   // Keep original methods available for deliberately legacy-only responses such as the fish cooldown notice.
   interaction.__v2OriginalMethods = {};
-  for (const method of ['reply', 'editReply']) {
+  for (const method of ['reply', 'editReply', 'deferReply']) {
     if (typeof interaction[method] === 'function') interaction.__v2OriginalMethods[method] = interaction[method].bind(interaction);
   }
   // Only wrap the methods this kind of interaction actually has (modal submits have no update).
@@ -3463,16 +3463,19 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         const action = interaction.options.getString('action');
         if (action === 'unlink') {
           const removed = db.clearRobloxLink(guild.id, interaction.user.id);
-          return interaction.reply({ content: removed ? '✅ Your Roblox account is unlinked.' : 'You have not linked a Roblox account here.', ephemeral: true });
+          const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+          return sendPlainReply({ content: removed ? '✅ Your Roblox account is unlinked.' : 'You have not linked a Roblox account here.', ephemeral: true });
         }
         // Link: the username is filled in from the member's own name when they do not type one.
         const username = String(interaction.options.getString('username') || interaction.user.username || '').trim();
         if (!username) return interaction.reply({ content: 'Give your Roblox username, for example: action Link, username yourname.', ephemeral: true });
-        await interaction.deferReply({ ephemeral: true });
+        const deferPlainReply = interaction.__v2OriginalMethods?.deferReply || interaction.deferReply.bind(interaction);
+        const editPlainReply = interaction.__v2OriginalMethods?.editReply || interaction.editReply.bind(interaction);
+        await deferPlainReply({ ephemeral: true });
         const info = await fetchRobloxUser(username).catch(() => null);
-        if (!info) return interaction.editReply('No Roblox user found with that name.');
+        if (!info) return editPlainReply({ content: 'No Roblox user found with that name.' });
         db.setRobloxLink(guild.id, interaction.user.id, info);
-        return interaction.editReply(`✅ Linked Roblox **${info.displayName}** (@${info.username}). It now shows in /userinfo.`);
+        return editPlainReply({ content: `✅ Linked Roblox **${info.displayName}** (@${info.username}). It now shows in /userinfo.` });
       }
 
       if (commandName === 'vaultalert') {
