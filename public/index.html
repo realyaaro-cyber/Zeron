@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0912">
+  <title>ZERON — Control Center</title>
+  <link rel="stylesheet" href="/styles.css?v=66">
+  <link rel="icon" type="image/png" href="/images/zeron-logo.png">
+</head>
+<body class="logged-out">
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <header class="topbar">
+      <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false">☰</button>
+    <a class="brand" href="/"><span class="brand-mark"><img src="/images/zeron-logo.png" alt="ZERON logo"></span><span>ZERON<span class="brand-sub">CONTROL CENTER</span></span></a>
+    <div class="top-actions"><span class="status"><i></i><span id="bot-status">Checking bot</span></span><button id="login-btn" class="btn primary" hidden>Connect Discord ↗</button><button id="logout-btn" class="btn hidden" hidden>Log out</button><div class="account-wrap"><button id="account-btn" class="account-btn" type="button" aria-label="Account" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></button><div id="account-menu" class="account-menu" hidden></div></div><div id="profile" class="profile hidden"></div></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="nx-search">
+        <input id="nx-search" type="search" placeholder="Search systems…" autocomplete="off">
+        <div class="nx-results" id="nx-results" hidden></div>
+      </div>
+      <div class="side-server-card" id="side-server-card">
+        <div class="side-server" id="side-server-btn"></div>
+        <div class="side-server-menu" id="side-server-menu" hidden></div>
+      </div>
+      <section class="side-group" data-group="GENERAL">
+  <button type="button" class="side-label side-toggle" aria-expanded="true"><span>GENERAL</span><span class="side-count">9</span><span class="side-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></button>
+  <div class="side-items"><div class="side-items-inner"><button class="nav active" data-page="overview"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg> <span>Overview</span></button>
+      <button class="nav" data-page="servers"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></svg> <span>Server selection</span></button>
+      <button class="nav" data-page="analytics"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg> <span>Analytics</span></button>
+      <button class="nav" data-page="channels"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg> <span>Channel manager</span></button>
+      <button class="nav" data-page="automod"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg> <span>Auto moderation</span></button>
+      <button class="nav" data-page="logs"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h8"/></svg> <span>Bot logs</span></button>
+      <button class="nav" data-page="jail"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>Jail</span></button>
+      <button class="nav" data-page="settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg> <span>General settings</span></button>
+      <button class="nav hidden" id="dev-nav" data-page="bot-status"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01"/></svg> <span>Bot status</span></button></div></div>
+</section>
+<section class="side-group" data-group="ONBOARDING &amp; ACCESS">
+  <button type="button" class="side-label side-toggle" aria-expanded="true"><span>ONBOARDING &amp; ACCESS</span><span class="side-count">8</span><span class="side-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></button>
+  <div class="side-items"><div class="side-items-inner"><button class="nav" data-page="welcome"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/></svg> <span>Welcome system</span></button>
+      <button class="nav" data-page="autorole"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M19 8v6M16 11h6"/></svg> <span>Auto-role</span></button>
+      <button class="nav" data-page="my-rank"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-4 4 3 3-2 6 5"/></svg> <span>My rank card</span></button>
+      <button class="nav" data-page="stats"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg> <span>Stats channels</span></button>
+      <button class="nav" data-page="onboarding"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16"/><path d="M12 4l8 8-8 8"/></svg> <span>Onboarding</span></button>
+      <button class="nav" data-page="verification"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg> <span>Verification</span></button>
+      <button class="nav" data-page="reaction-roles"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg> <span>Reaction roles</span></button>
+      <button class="nav" data-page="roles"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> <span>Roles &amp; permissions</span></button></div></div>
+</section>
+<section class="side-group" data-group="LEVELING">
+  <button type="button" class="side-label side-toggle" aria-expanded="true"><span>LEVELING</span><span class="side-count">2</span><span class="side-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></button>
+  <div class="side-items"><div class="side-items-inner"><button class="nav" data-page="leveling"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 7l-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg> <span>XP &amp; leveling</span></button>
+      <button class="nav" data-page="rewards"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="6"/><path d="M15.5 13.5L17 22l-5-3-5 3 1.5-8.5"/></svg> <span>Level rewards</span></button></div></div>
+</section>
+<section class="side-group" data-group="COMMUNITY">
+  <button type="button" class="side-label side-toggle" aria-expanded="true"><span>COMMUNITY</span><span class="side-count">5</span><span class="side-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></button>
+  <div class="side-items"><div class="side-items-inner">
+    <button class="nav" data-page="embed-builder"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10"/><path d="M7 13h6"/><path d="M7 17h4"/></svg> <span>Embed builder</span></button><button class="nav" data-page="birthdays"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8M4 21h16M8 11V8M12 11V8M16 11V8"/><path d="M8 5h.01M12 5h.01M16 5h.01"/></svg> <span>Birthdays</span></button>
+      <button class="nav" data-page="announcements"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg> <span>Announcements</span></button>
+      <button class="nav" data-page="giveaways"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg> <span>Giveaways</span></button>
+      <button class="nav" data-page="commands"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg> <span>Custom commands</span></button></div></div>
+</section>
+<section class="side-group" data-group="SUPPORT">
+  <button type="button" class="side-label side-toggle" aria-expanded="true"><span>SUPPORT</span><span class="side-count">1</span><span class="side-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></button>
+  <div class="side-items"><div class="side-items-inner"><button class="nav" data-page="tickets"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9a2 2 0 0 0 0 6v3h18v-3a2 2 0 0 0 0-6V6H3z"/><path d="M14 6v12"/></svg> <span>Tickets</span></button>
+      <div class="sidebar-foot"><div class="mini-orb">✦</div><div><b>ZERON CORE</b><small>Built to command.</small></div></div></div></div>
+</section>
+</aside>
+    <main class="main">
+      <div class="welcome-row"><div><div class="eyebrow">YOUR SERVER. YOUR RULES.</div><h1 id="page-title">Control center<span>.</span></h1><p id="page-desc">Everything you need to run your community, in one place.</p></div>
+        <select id="guild-select" class="guild-select"><option value="">Select a server</option></select></div>
+      <div id="toast" class="toast hidden"></div>
+      <section id="content" class="content">
+        <div class="panel card rw-card"><p class="rw-sub">Loading…</p></div>
+        <span id="stat-bot" hidden></span><span id="stat-servers" hidden></span><span id="stat-guilds" hidden></span>
+      </section>
+      <footer>© 2026 ZERON • <span>Powered by Discord.</span> • <span>Made by YaaroX</span></footer>
+    </main>
+  </div>
+  <nav class="bottom-bar" id="bottom-bar">
+    <div class="bar-track">
+      <span class="bar-lens" id="bar-lens"></span>
+      <button data-page="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/></svg><small>Home</small></button>
+      <button data-page="analytics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg><small>Stats</small></button>
+      <button data-page="logs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h7"/><path d="M9 17h7"/></svg><small>Logs</small></button>
+      <button data-page="my-rank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 21l5-2.5L17 21l-1.5-7"/></svg><small>Rank</small></button>
+    </div>
+  </nav>
+  <script src="/app.js?v=89" defer></script>
+
+<div id="unsaved-bar" class="unsaved-bar" hidden><span>Careful — you have unsaved changes!</span><div><button type="button" class="btn" id="unsaved-cancel">Cancel</button><button type="button" class="btn primary" id="unsaved-save">Save Changes</button></div></div>
+</body></html>
