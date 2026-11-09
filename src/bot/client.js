@@ -3515,7 +3515,8 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         }
         const posted = await postVaultNow(interaction.guild, rule);
         if (!posted) return interaction.editReply({ content: 'The vault intel channel is missing or the bot cannot post there.' });
-        return interaction.editReply({ content: `✅ The ${rule.label} Vault was posted in <#${rule.channel_id}>.` });
+        const editPlainReply = interaction.__v2OriginalMethods?.editReply || interaction.editReply.bind(interaction);
+        return editPlainReply({ content: `✅ The ${rule.label} Vault was posted in <#${rule.channel_id}>.` });
       }
 
       if (commandName === 'aichat') {
