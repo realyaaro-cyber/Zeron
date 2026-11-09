@@ -538,6 +538,11 @@ function v2Proxy(interaction) {
   if (exclusionKeys.some(key => LEGACY_V2_EXCLUSIONS.has(key))) return;
   if (interaction.__v2Proxied) return;
   interaction.__v2Proxied = true;
+  // Keep original methods available for deliberately legacy-only responses such as the fish cooldown notice.
+  interaction.__v2OriginalMethods = {};
+  for (const method of ['reply', 'editReply']) {
+    if (typeof interaction[method] === 'function') interaction.__v2OriginalMethods[method] = interaction[method].bind(interaction);
+  }
   // Only wrap the methods this kind of interaction actually has (modal submits have no update).
   if (typeof interaction.reply === 'function') {
     const reply = interaction.reply.bind(interaction);
@@ -2896,9 +2901,11 @@ const fishWaitMessages = new Map();
           if (pending) {
             clearTimeout(pending.timer);
             await interaction.deferUpdate().catch(() => {});
-            await pending.interaction.editReply({ content: waitText }).catch(() => {});
+            const editPlainReply = pending.interaction.__v2OriginalMethods?.editReply || pending.interaction.editReply.bind(pending.interaction);
+            await editPlainReply({ content: waitText }).catch(() => {});
           } else {
-            await interaction.reply({ content: waitText, ephemeral: true });
+            const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+            await sendPlainReply({ content: waitText, ephemeral: true });
           }
           const owner = pending ? pending.interaction : interaction;
           const timer = setTimeout(async () => {
