@@ -2324,7 +2324,10 @@ const fishWaitMessages = new Map();
         }
         if (action === 'mine') {
           const g = db.getPlayerGuild(interaction.guildId, interaction.user.id);
-          if (!g) return interaction.reply({ content: 'You are not in a guild. Use `/guild` and choose **Create Guild** or explore existing guilds.', ephemeral: true });
+          if (!g) {
+            const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+            return sendPlainReply({ content: 'You are not in a guild. Use `/guild` and choose **Create Guild** or explore existing guilds.', ephemeral: true });
+          }
           const members = db.getPlayerGuildMembers(interaction.guildId, g.id);
           const desc = members.slice(0, 20).map(m => `${m.role === 'leader' ? '👑' : '⚔️'} <@${m.user_id}>`).join('\n');
           const embed = new EmbedBuilder().setColor(db.accentColor(interaction.guildId)).setTitle('🏰 ' + g.name)
