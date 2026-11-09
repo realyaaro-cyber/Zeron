@@ -3493,7 +3493,8 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         if (!channel || !role) return interaction.reply({ content: 'For Add, give the vault, the channel, and the role.', ephemeral: true });
         if (!channel.isTextBased()) return interaction.reply({ content: 'Pick a text or announcement channel.', ephemeral: true });
         db.setVaultRule(guild.id, key, label, channel.id, role.id);
-        return interaction.reply({
+        const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        return sendPlainReply({
           content: `✅ Watching #${channel.name} for **${label} Vault**. **@${role.name}** will be pinged when it shows up.`,
           ephemeral: true
         });
