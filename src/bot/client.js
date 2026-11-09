@@ -2524,7 +2524,9 @@ const fishWaitMessages = new Map();
         if (!interaction.guildId) return interaction.reply({ content: 'Guilds only work inside a server.', ephemeral: true });
         const result = db.createPlayerGuild(interaction.guildId, interaction.user.id, interaction.fields.getTextInputValue('guild_name'), 500);
         const messages = { name: 'Use 3–24 letters, numbers, spaces, underscores, or hyphens.', member: 'You are already in a guild.', taken: 'That guild name is already taken in this server.', funds: `Creating a guild costs 500 coins. Your balance is ${(result.balance || 0).toLocaleString()} coins.` };
-        return interaction.reply({ content: result.ok ? `🏰 Guild **${result.guild.name}** created! **500 coins** were deducted. You are its leader. Use **/guild** to manage it.` : `❌ ${messages[result.reason] || 'Could not create that guild.'}`, ephemeral: true });
+        const replyPayload = { content: result.ok ? `🏰 Guild **${result.guild.name}** created! **500 coins** were deducted. You are its leader. Use **/guild** to manage it.` : `❌ ${messages[result.reason] || 'Could not create that guild.'}`, ephemeral: true };
+        const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        return sendPlainReply(replyPayload);
       }
       if (interaction.isModalSubmit() && interaction.customId === 'zeron_guild_invite_modal') {
         if (!interaction.guildId) return interaction.reply({ content: 'Guilds only work inside a server.', ephemeral: true });
