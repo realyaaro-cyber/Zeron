@@ -1651,7 +1651,7 @@ function createClient(db) {
       conversation.updatedAt = Date.now();
       conversation.activeUntil = Date.now() + 5 * 60 * 1000;
       aiConversations.set(conversationKey, conversation);
-      await message.reply(toV2Payload({ content: 'The AI is having trouble responding right now. Your conversation is saved—reply to this message to retry without losing context.', allowedMentions: { repliedUser: false, parse: [] } })).catch(() => {});
+      await message.reply({ content: 'The AI is having trouble responding right now. Your conversation is saved—reply to this message to retry without losing context.', allowedMentions: { repliedUser: false, parse: [] } }).catch(() => {});
     }
     if (aiConversations.size > 500) {
       for (const [key, value] of aiConversations) {
