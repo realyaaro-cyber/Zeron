@@ -2412,7 +2412,9 @@ const fishWaitMessages = new Map();
         }
         if (action === 'disband') {
           const result = db.disbandPlayerGuild(interaction.guildId, interaction.user.id);
-          return interaction.reply({ content: result.ok ? `🏚️ **${result.name}** has been disbanded.` : 'Only your guild leader can disband the guild.', ephemeral: true });
+          const replyPayload = { content: result.ok ? `🏚️ **${result.name}** has been disbanded.` : 'Only your guild leader can disband the guild.', ephemeral: true };
+          const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+          return sendPlainReply(replyPayload);
         }
       }
       if (interaction.isStringSelectMenu() && interaction.customId === 'zeron_guild_war_opponent') {
