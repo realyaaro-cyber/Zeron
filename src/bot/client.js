@@ -3290,7 +3290,8 @@ ${failed} could not receive coins (balance limit).` : ''}`;
 
         db.saveSettings(guild.id, patch);
         const saved = db.getSettings(guild.id);
-        return interaction.reply({
+        const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        return sendPlainReply({
           content: 'Welcome settings updated!\n' +
             '**Status:** ' + (saved.welcome_enabled ? 'Enabled' : 'Disabled') + '\n' +
             '**Channel:** ' + (saved.welcome_channel_id ? '<#' + saved.welcome_channel_id + '>' : 'Not configured') + '\n' +
