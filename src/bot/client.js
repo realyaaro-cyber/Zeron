@@ -3004,9 +3004,9 @@ const fishWaitMessages = new Map();
         });
       }
       db.setBirthday(interaction.guildId, interaction.user.id, day, month);
-      return interaction.reply({
-        embeds: [new EmbedBuilder().setColor(db.accentColor(interaction.guildId)).setTitle('🎂 Birthday saved')
-          .setDescription('We will wish you on **' + formatBirthday(day, month) + '**.')],
+      const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+      return sendPlainReply({
+        content: '### 🎂 Birthday saved\nWe will wish you on **' + formatBirthday(day, month) + '**.',
         ephemeral: true
       });
     }
@@ -3646,9 +3646,11 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         }
         if (action === 'remove') {
           const removed = db.removeBirthday(guild.id, interaction.user.id);
-          return interaction.reply({
-            embeds: [new EmbedBuilder().setColor(accent).setTitle(removed ? '🗑️ Birthday removed' : 'No birthday saved')
-              .setDescription(removed ? 'Your birthday has been removed from this server.' : 'You have not saved a birthday here yet.')],
+          const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+          return sendPlainReply({
+            content: removed
+              ? '### 🗑️ Birthday removed\nYour birthday has been removed from this server.'
+              : 'You have not saved a birthday here yet.',
             ephemeral: true
           });
         }
@@ -3660,11 +3662,9 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           : target.id === interaction.user.id
             ? 'You have not set a birthday yet. Use `/birthday set`.'
             : target.username + ' has not set a birthday yet.';
-        return interaction.reply({
-          embeds: [new EmbedBuilder().setColor(accent)
-            .setAuthor({ name: target.username, iconURL: target.displayAvatarURL({ size: 128 }) })
-            .setTitle('🎂 Birthday')
-            .setDescription(description)]
+        const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        return sendPlainReply({
+          content: '-# ' + target.username + '\n### 🎂 Birthday\n' + description
         });
       }
 
