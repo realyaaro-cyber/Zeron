@@ -139,6 +139,27 @@ function initializeDatabase(filename) {
       ON invite_tracker_joins (guild_id, inviter_id);
   `);
 
+  // Starboard configuration and published-message mapping.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS starboard_settings (
+      guild_id TEXT PRIMARY KEY,
+      source_channel_id TEXT NOT NULL,
+      destination_channel_id TEXT NOT NULL,
+      threshold INTEGER NOT NULL DEFAULT 5,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS starboard_posts (
+      guild_id TEXT NOT NULL,
+      source_message_id TEXT NOT NULL,
+      destination_message_id TEXT NOT NULL,
+      star_count INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (guild_id, source_message_id),
+      UNIQUE (guild_id, destination_message_id)
+    );
+  `);
+
   // Safe economy expansion: retain existing balances and XP.
   const economyColumns = db.prepare('PRAGMA table_info(economy_users)').all()
     .map(column => column.name);
@@ -897,6 +918,43 @@ db.exec("ALTER TABLE guild_settings ADD COLUMN levelup_message TEXT NOT NULL DEF
       db.prepare(`UPDATE guild_settings SET ${assignments}, updated_at = CURRENT_TIMESTAMP WHERE guild_id = @guild_id`)
         .run({ guild_id: guildId, ...Object.fromEntries(entries) });
       return this.getSettings(guildId);
+    },
+    getStarboardSettings(guildId) {
+      return db.prepare('SELECT guild_id, source_channel_id, destination_channel_id, threshold, enabled FROM starboard_settings WHERE guild_id = ?')
+        .get(String(guildId)) || null;
+    },
+    saveStarboardSettings(guildId, config) {
+      db.prepare(`INSERT INTO starboard_settings (guild_id, source_channel_id, destination_channel_id, threshold, enabled)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(guild_id) DO UPDATE SET
+          source_channel_id = excluded.source_channel_id,
+          destination_channel_id = excluded.destination_channel_id,
+          threshold = excluded.threshold,
+          enabled = excluded.enabled,
+          updated_at = CURRENT_TIMESTAMP`)
+        .run(String(guildId), String(config.sourceChannelId), String(config.destinationChannelId), Number(config.threshold), config.enabled ? 1 : 0);
+      return this.getStarboardSettings(guildId);
+    },
+    getStarboardPost(guildId, sourceMessageId) {
+      return db.prepare('SELECT guild_id, source_message_id, destination_message_id, star_count FROM starboard_posts WHERE guild_id = ? AND source_message_id = ?')
+        .get(String(guildId), String(sourceMessageId)) || null;
+    },
+    getStarboardPostByDestination(guildId, destinationMessageId) {
+      return db.prepare('SELECT guild_id, source_message_id, destination_message_id, star_count FROM starboard_posts WHERE guild_id = ? AND destination_message_id = ?')
+        .get(String(guildId), String(destinationMessageId)) || null;
+    },
+    saveStarboardPost(guildId, sourceMessageId, destinationMessageId, starCount) {
+      db.prepare(`INSERT INTO starboard_posts (guild_id, source_message_id, destination_message_id, star_count, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(guild_id, source_message_id) DO UPDATE SET
+          destination_message_id = excluded.destination_message_id,
+          star_count = excluded.star_count`)
+        .run(String(guildId), String(sourceMessageId), String(destinationMessageId), Number(starCount), Date.now());
+      return true;
+    },
+    updateStarboardPostCount(guildId, sourceMessageId, starCount) {
+      return db.prepare('UPDATE starboard_posts SET star_count = ? WHERE guild_id = ? AND source_message_id = ?')
+        .run(Number(starCount), String(guildId), String(sourceMessageId)).changes > 0;
     },
     getInviteTrackerSettings(guildId) {
       return db.prepare(
