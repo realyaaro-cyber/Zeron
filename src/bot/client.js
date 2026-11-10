@@ -3788,7 +3788,9 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageMessages)) return interaction.reply({ content: 'You need Manage Messages permission.', ephemeral: true });
         if (!guild.members.me?.permissionsIn(interaction.channel).has(PermissionFlagsBits.ManageMessages)) return interaction.reply({ content: 'ZERON needs Manage Messages in this channel.', ephemeral: true });
         const amount = interaction.options.getInteger('amount');
-        await interaction.deferReply({ ephemeral: true });
+        const deferPlainReply = interaction.__v2OriginalMethods?.deferReply || interaction.deferReply.bind(interaction);
+        const editPlainReply = interaction.__v2OriginalMethods?.editReply || interaction.editReply.bind(interaction);
+        await deferPlainReply({ ephemeral: true });
         const channel = interaction.channel;
         const fourteenDays = 14 * 24 * 60 * 60 * 1000;
         let remaining = amount === 0 ? Infinity : amount;
@@ -3816,11 +3818,10 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           remaining -= batch.size;
           // Let the event loop breathe between batches, so long purges never delay the Discord connection.
           await new Promise(resolve => setImmediate(resolve));
-          await interaction.editReply({ content: `🧹 Deleting… ${deleted} of ${amount === 0 ? 'all' : amount} messages done so far.` }).catch(() => {});
+          await editPlainReply({ content: `🧹 Deleting… ${deleted} of ${amount === 0 ? 'all' : amount} messages done so far.` }).catch(() => {});
         }
         await writeLog(guild, 'purge', null, `${deleted} messages deleted`, interaction.user.id);
         const note = oldSkipped ? ` ${oldSkipped} messages could not be deleted.` : '';
-        const editPlainReply = interaction.__v2OriginalMethods?.editReply || interaction.editReply.bind(interaction);
         return editPlainReply({ content: `🧹 Done. Deleted ${deleted} messages.${note}` }).catch(() => {});
       }
       if (commandName === 'ping') {
