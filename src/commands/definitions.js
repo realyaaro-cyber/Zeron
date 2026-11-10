@@ -8,7 +8,7 @@ const commands = [
     .addStringOption(o => o.setName('message').setDescription('Use {user}, {username}, and {server}').setMaxLength(1800).setRequired(false)),
 
   new SlashCommandBuilder().setName('starboard')
-    .setDescription('Choose a source channel and destination channel, set the ⭐ reaction threshold, and enable or disable automatic Starboard reposts.')
+    .setDescription('Set up Starboard to repost messages with enough ⭐ reactions.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addSubcommand(sub => sub.setName('setup').setDescription('Set the source, destination, star threshold, and status.')
       .addBooleanOption(o => o.setName('enabled').setDescription('True = enable Starboard, False = disable it').setRequired(true))
