@@ -1352,6 +1352,22 @@ db.exec("ALTER TABLE guild_settings ADD COLUMN levelup_message TEXT NOT NULL DEF
     getAchievements(guildId, userId) {
       return db.prepare('SELECT achievement_id, unlocked_at FROM economy_achievements WHERE guild_id=? AND user_id=? ORDER BY unlocked_at').all(guildId,userId);
     },
+    getAchievementStats(guildId, userId) {
+      const xp = db.prepare('SELECT xp FROM xp_users WHERE guild_id=? AND user_id=?').get(guildId,userId);
+      const earnings = db.prepare('SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END),0) AS total FROM economy_transactions WHERE guild_id=? AND user_id=?').get(guildId,userId);
+      const fishing = db.prepare('SELECT total, shark, legendary FROM fishing_stats WHERE guild_id=? AND user_id=?').get(guildId,userId) || { total: 0, shark: 0, legendary: 0 };
+      const quests = db.prepare('SELECT COUNT(*) AS total FROM fishing_quest_claims WHERE guild_id=? AND user_id=?').get(guildId,userId);
+      const collectibles = db.prepare('SELECT COUNT(*) AS total FROM economy_collectibles WHERE guild_id=? AND user_id=? AND quantity>0').get(guildId,userId);
+      return {
+        xp: xp?.xp || 0,
+        totalEarned: earnings.total || 0,
+        fishCaught: fishing.total || 0,
+        sharks: fishing.shark || 0,
+        legendaryFish: fishing.legendary || 0,
+        fishingQuests: quests.total || 0,
+        uniqueCollectibles: collectibles.total || 0
+      };
+    },
 
     catchFish(guildId, userId, fish) {
       if (!fish || typeof fish.name !== 'string' || typeof fish.emoji !== 'string' ||
