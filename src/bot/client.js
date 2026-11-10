@@ -558,7 +558,7 @@ function toV2Payload(payload, ephemeral) {
 // Add a key here later to keep one response family on legacy embeds while V2 stays global.
 // Supported keys: command:<slash-command>, component:<custom-id-prefix>, message:<Discord-message-id>.
 const LEGACY_V2_EXCLUSIONS = new Set([
-  // Example: 'command:play', 'component:zeron_slots_again', 'message:123456789012345678'
+  'command:starboard', // Starboard setup confirmations and errors stay as plain Discord messages.
 ]);
 
 function isAccessRestrictionPayload(payload) {
@@ -1193,12 +1193,24 @@ function createClient(db) {
     const destination = sourceMessage.guild.channels.cache.get(config.destination_channel_id);
     if (!destination?.isTextBased() || typeof destination.send !== 'function') return;
 
+    const authorName = sourceMessage.member?.displayName || sourceMessage.author.globalName || sourceMessage.author.username;
+    const description = sourceMessage.content || 'No text content';
+    const attachmentLines = [...sourceMessage.attachments.values()].slice(0, 8)
+      .map(file => `[📎 ${String(file.name || 'Attachment').slice(0, 80)}](${file.url})`);
+    const body = [
+      description,
+      ...attachmentLines,
+      '',
+      `Original channel: <#${sourceMessage.channel.id}>`,
+      `Original message: ${sourceMessage.url}`,
+      `⭐ ${count} star${count === 1 ? '' : 's'}`
+    ].join('\n').slice(0, 3900);
+    const starboardCard = textCard(`⭐ ${authorName.slice(0, 200)}`, body, 'ZERON Starboard', db.accentColor(sourceMessage.guild.id));
+
     if (existing) {
       const posted = await destination.messages.fetch(existing.destination_message_id).catch(() => null);
       if (!posted) return;
-      const embed = posted.embeds[0] ? EmbedBuilder.from(posted.embeds[0]) : new EmbedBuilder();
-      embed.setFooter({ text: `⭐ ${count} star${count === 1 ? '' : 's'}` });
-      await posted.edit({ embeds: [embed] }).catch(error => console.error('Starboard count update failed:', error.message));
+      await posted.edit({ components: [starboardCard] }).catch(error => console.error('Starboard count update failed:', error.message));
       db.updateStarboardPostCount(sourceMessage.guild.id, sourceMessage.id, count);
       return;
     }
@@ -1207,25 +1219,12 @@ function createClient(db) {
     if (starboardPublishing.has(publishKey)) return;
     starboardPublishing.add(publishKey);
     try {
-    const authorName = sourceMessage.member?.displayName || sourceMessage.author.globalName || sourceMessage.author.username;
-    const description = (sourceMessage.content || '*No text content*').slice(0, 4000);
-    const attachmentLines = [...sourceMessage.attachments.values()].slice(0, 8)
-      .map(file => `[📎 ${String(file.name || 'Attachment').slice(0, 80)}](${file.url})`);
-    const embed = new EmbedBuilder()
-      .setColor(db.accentColor(sourceMessage.guild.id))
-      .setAuthor({ name: authorName.slice(0, 250), iconURL: sourceMessage.author.displayAvatarURL() })
-      .setDescription([description, ...attachmentLines].join('\n\n').slice(0, 4096))
-      .addFields(
-        { name: 'Original channel', value: `<#${sourceMessage.channel.id}>`, inline: true },
-        { name: 'Original message', value: `[Jump to message](${sourceMessage.url})`, inline: true }
-      )
-      .setTimestamp(sourceMessage.createdAt)
-      .setFooter({ text: `⭐ ${count} stars` });
-
     const files = [...sourceMessage.attachments.values()].slice(0, 10).map(file => file.url);
+    const djs = require('discord.js');
     const posted = await destination.send({
-      embeds: [embed],
+      components: [starboardCard],
       files,
+      flags: djs.MessageFlags.IsComponentsV2,
       allowedMentions: { parse: [] }
     });
     await posted.react('⭐').catch(() => {});
