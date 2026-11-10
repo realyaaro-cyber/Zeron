@@ -1417,14 +1417,15 @@ function createClient(db) {
   const AI_CONTEXT_TURNS = 8;
   const AI_CONTEXT_TTL = 30 * 60 * 1000;
 
-  // Keep AI answers aligned with Discord command permissions and runtime owner/developer guards.
+  // Build the AI access guide from live slash-command definitions plus verified runtime guards.
+  // This is prompt-only metadata: it does not change command registration or execution.
   function aiCommandAccessGuide() {
     const specialAccess = {
-      devgive: 'ZERON developer only',
-      ownergive: 'server owner only',
-      jail: 'server owner only',
-      unjail: 'server owner only',
-      'manage-cmnds': 'server owner only'
+      devgive: 'ZERON developer account only (checked at runtime)',
+      ownergive: 'this server owner only (checked at runtime)',
+      jail: 'this server owner only (checked at runtime; Discord default permission is 0)',
+      unjail: 'this server owner only (checked at runtime; Discord default permission is 0)',
+      'manage-cmnds': 'this server owner only (checked at runtime; Discord default permission is 0)'
     };
     const permissionLabels = [
       [PermissionFlagsBits.Administrator, 'Administrator'],
@@ -1434,25 +1435,57 @@ function createClient(db) {
       [PermissionFlagsBits.ModerateMembers, 'Moderate Members (Timeout)'],
       [PermissionFlagsBits.ManageMessages, 'Manage Messages']
     ];
+    const moduleLabels = {
+      module_xp: 'XP/Leveling module',
+      module_economy: 'Economy module',
+      module_fishing: 'Fishing module',
+      module_games: 'Games module'
+    };
+    const botRequirements = {
+      welcome: 'To deliver welcome messages, ZERON needs Send Messages in the configured welcome channel; this is a bot-side requirement, not an extra caller permission.',
+      'track-invite': 'ZERON also needs Manage Server to inspect invite usage, and access to the configured log channel.',
+      'enable-level-up': 'To deliver announcements, ZERON needs Send Messages in the configured announcement channel; assigning configured role rewards additionally needs Manage Roles and a reward role below ZERON’s highest role.',
+      'role-reward': 'ZERON needs Manage Roles, and the reward role must be below ZERON’s highest role.',
+      trivia: 'ZERON must be able to send messages in the channel for the trivia question and result.',
+      kick: 'ZERON needs Kick Members and its highest role must be above the target; the caller’s highest role must also be higher than the target unless the caller is the server owner.',
+      ban: 'ZERON needs Ban Members and its highest role must be above the target; the caller’s highest role must also be higher than the target unless the caller is the server owner.',
+      unban: 'ZERON needs Ban Members.',
+      timeout: 'ZERON needs Moderate Members and its highest role must be above the target; the caller’s highest role must also be higher than the target unless the caller is the server owner.',
+      untimeout: 'ZERON needs Moderate Members and its highest role must be above the target; the caller’s highest role must also be higher than the target unless the caller is the server owner.',
+      purge: 'ZERON needs Manage Messages in the channel.',
+      jail: 'ZERON needs Manage Roles; a jail role must be configured and manageable, and the target must be below ZERON in role hierarchy.',
+      unjail: 'ZERON needs Manage Roles and must be able to restore the member’s saved roles.',
+      vaultalert: 'For alert delivery, ZERON needs Send Messages in the configured alert channel.'
+      vaultpost: 'A matching vault alert must exist, and ZERON must be able to post in its configured Vault Intel channel.',
+      aichat: 'Enabling the channel does not itself require an API key; for AI replies to work, an AI API key must be configured and ZERON needs Send Messages in the selected channel.'
+    };
+
     return commands.map(command => {
       const json = command.toJSON();
       let access = specialAccess[json.name];
       if (!access) {
         const raw = json.default_member_permissions;
-        if (raw === '0') {
-          access = 'Administrator permission is required by the Discord command visibility setting';
+        if (raw === '0' || raw === 0) {
+          access = 'Discord default permission is 0 (not generally available); check any explicit runtime rule before describing who can use it';
         } else if (raw !== undefined && raw !== null) {
           const required = BigInt(raw);
           const labels = permissionLabels
             .filter(([flag]) => (required & BigInt(flag)) === BigInt(flag))
             .map(([, label]) => label);
-          access = labels.length ? 'requires ' + labels.join(' and ') : 'has a configured Discord permission requirement';
+          access = labels.length
+            ? 'requires ' + labels.join(' and ')
+            : 'has a configured Discord default permission requirement';
         } else {
-          access = 'no default Discord permission requirement';
+          access = 'no default Discord member-permission requirement is defined';
         }
       }
-      return '/' + json.name + ': ' + access + '.';
-    }).join('\\n');
+
+      const details = [access];
+      const moduleKey = COMMAND_MODULES[json.name];
+      if (moduleKey) details.push('also requires the ' + (moduleLabels[moduleKey] || moduleKey) + ' to be enabled');
+      if (botRequirements[json.name]) details.push(botRequirements[json.name]);
+      return '/' + json.name + ': ' + details.join('; ') + '.';
+    }).join('\n');
   }
 
   function aiSystemPrompt(compact = false) {
@@ -1470,7 +1503,7 @@ function createClient(db) {
         '',
         'Command access rules (configured requirements, not a live check of the current user):',
         access,
-        'Server owners can disable commands globally or restrict individual members. XP, economy, fishing, and games commands may also be unavailable when their module is off. A command with no default Discord permission requirement can still have server-specific restrictions or runtime checks. Never claim a user can run a command unless the relevant rules and current server settings are known.',
+        'Every slash command is server-only. Except /manage-cmnds, commands can be disabled for the whole server or restricted for an individual member; /manage-cmnds is server-owner-only and exempt from those two command-block lists. Module-linked commands also stop working when their module is off. The guide lists configured command permissions and known runtime checks, but it does not reveal the current member’s live permissions, restrictions, module settings, role hierarchy, bot permissions, or channel access. Do not guess a person’s access: explain the known rule and say the server’s current settings must be checked. Distinguish the caller’s permissions from permissions ZERON itself needs.',
         '',
         'ZERON feature guide: Dashboard/admin configuration covers channels, welcome, AutoMod, verification, auto-role, reaction roles, tickets, custom commands, embeds, scheduled announcements, leveling, and invite tracking. Moderation commands include kick, ban, unban, timeout, untimeout, and purge; jail/unjail are owner-only. Community features include rank, leaderboard, birthday, AFK, giveaways, and tickets. Economy includes pay, bank (2% base interest per 24h), inventory, transactions, profile, collectibles, and restricted devgive/ownergive. Collectibles listed in the project: Common Crystal 500, Rare Phoenix 2,500, Epic Dragon 10,000, Legendary Crown 50,000 coins. Fishing has rods, bait, catches, quests, XP/levels, and selling. Games include slots and trivia. /guild opens guild management; creation costs 500 coins and guild wars are supported. Utilities include Roblox linking, vault alerts, ping, serverinfo, and userinfo.',
         'Some features may be disabled or configured differently per server. For menu-based features, direct members to the relevant command/menu. Never promise an effect beyond what the live command displays.'
@@ -1492,7 +1525,7 @@ function createClient(db) {
       '',
       'Command access rules (configured requirements, not a live check of the current user):',
       access,
-      'Server owners can disable commands globally or restrict individual members. XP, economy, fishing, and games commands may also be unavailable when their module is off. A command with no default Discord permission requirement can still have server-specific restrictions or runtime checks. Never claim a user can run a command unless the relevant rules and current server settings are known.',
+      'Every slash command is server-only. Except /manage-cmnds, commands can be disabled for the whole server or restricted for an individual member; /manage-cmnds is server-owner-only and exempt from those two command-block lists. Module-linked commands also stop working when their module is off. The guide lists configured command permissions and known runtime checks, but it does not reveal the current member’s live permissions, restrictions, module settings, role hierarchy, bot permissions, or channel access. Do not guess a person’s access: explain the known rule and say the server’s current settings must be checked. Distinguish the caller’s permissions from permissions ZERON itself needs.',
       '',
       ZERON_FEATURE_KNOWLEDGE
     ].join('\n');
@@ -1503,7 +1536,7 @@ function createClient(db) {
       'You are ZERON, a friendly Discord assistant. Reply naturally and concisely in the user’s language; support English, Hinglish, Malay, Indonesian, Filipino/Tagalog, and Bangla. Default Bangla to Banglish unless Bengali script is requested.',
       'Never invent ZERON commands, features, prices, permissions, or server facts. If unsure, say so. Explain actions but never claim you performed Discord actions. Never ping users or use mass mentions.',
       'Configured command access rules: ' + aiCommandAccessGuide().replace(/\\n/g, ' '),
-      'These rules do not reveal the current user’s live access. Server owners can disable commands or restrict individual members; modules can also be off. No default Discord permission requirement does not guarantee access. Never guess.'
+      'Every slash command is server-only. Except /manage-cmnds, commands can be disabled server-wide or restricted for an individual member; /manage-cmnds is server-owner-only and exempt from those lists. Modules can also be off. This guide does not show the current member’s live permissions, restrictions, module settings, role hierarchy, bot permissions, or channel access. Explain known rules but never guess current access, and distinguish the caller’s permissions from permissions ZERON needs.'
     ].join(' ');
   }
 
