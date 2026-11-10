@@ -16,6 +16,13 @@ const commands = [
       .addChannelOption(o => o.setName('destination_channel').setDescription('Destination channel (required when setting up for the first time)').setRequired(false))
       .addIntegerOption(o => o.setName('threshold').setDescription('Unique member ⭐ reactions needed (required for first-time setup)').setMinValue(1).setMaxValue(100000).setRequired(false))),
 
+  new SlashCommandBuilder().setName('roleemoji')
+    .setDescription('Create a server emoji and apply it as a role icon.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addRoleOption(o => o.setName('role').setDescription('Role to receive the icon').setRequired(true))
+    .addStringOption(o => o.setName('name').setDescription('New server emoji name (letters, numbers, underscores)').setMinLength(2).setMaxLength(32).setRequired(true))
+    .addAttachmentOption(o => o.setName('image').setDescription('Static PNG, JPG or WebP image, max 256 KB').setRequired(true)),
+
   new SlashCommandBuilder().setName('track-invite')
     .setDescription('Configure invite join tracking.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
