@@ -1571,7 +1571,7 @@ function createClient(db) {
     const rawBaseUrl = get('BASE_URL') || (isPrimary ? 'https://proxy.gonkabroker.com/v1' : '');
     if (!key || !model || !rawBaseUrl) return null;
 
-    const baseUrl = rawBaseUrl.replace(/\\/+$/, '').replace(/\\/chat\\/completions$/i, '');
+    const baseUrl = rawBaseUrl.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '');
     let parsedBaseUrl;
     try {
       parsedBaseUrl = new URL(baseUrl);
@@ -1584,7 +1584,7 @@ function createClient(db) {
       return null;
     }
     const isOpenRouter = parsedBaseUrl.origin === 'https://openrouter.ai' &&
-      parsedBaseUrl.pathname.replace(/\\/+$/, '') === '/api/v1';
+      parsedBaseUrl.pathname.replace(/\/+$/, '') === '/api/v1';
     return {
       provider: get('PROVIDER') || (isOpenRouter ? 'OpenRouter' : (isPrimary ? 'Primary AI provider' : 'Backup AI provider')),
       key,
@@ -1663,7 +1663,7 @@ function createClient(db) {
 
           const detail = await res.text().catch(() => '');
           if (res.status === 402 && provider.isOpenRouter) {
-            const affordableMatch = detail.match(/can only afford\\s+(\\d+)/i);
+            const affordableMatch = detail.match(/can only afford\s+(\d+)/i);
             const affordableTokens = affordableMatch ? Number(affordableMatch[1]) : 0;
             if (affordableTokens >= 64 && affordableTokens < maxTokens) {
               maxTokens = affordableTokens;
