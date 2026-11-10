@@ -2084,7 +2084,7 @@ const fishWaitMessages = new Map();
           if (accepted.includes(normalize(rawContent))) {
             if (db.winTrivia(activeTrivia.id, message.author.id)) {
               db.addCoins(message.guild.id, message.author.id, activeTrivia.reward, 'trivia reward');
-              await message.reply(toV2Payload({ content: `✅ ${message.author} got it! Correct answer: **${activeTrivia.answer.split('|')[0]}**. You earned ${coinText(activeTrivia.reward)}.` })).catch(() => {});
+              await message.reply({ content: `✅ ${message.author} got it! Correct answer: ${activeTrivia.answer.split('|')[0]}. You earned ${coinText(activeTrivia.reward)}.`, allowedMentions: { repliedUser: false } }).catch(() => {});
             }
           }
         }
@@ -3395,15 +3395,15 @@ ${failed} could not receive coins (balance limit).` : ''}`;
       }
 
       if (commandName === 'trivia') {
-        if (!interaction.guild) return interaction.reply({ content: 'Use this inside a server.', ephemeral: true });
+        if (!interaction.guild) return (interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction))({ content: 'Use this inside a server.', ephemeral: true });
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-          return interaction.reply({ content: 'You need Manage Server to run trivia.', ephemeral: true });
+          return (interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction))({ content: 'You need Manage Server to run trivia.', ephemeral: true });
         }
         const guild = interaction.guild;
         const accent = db.accentColor(guild.id);
 
         if (interaction.options.getBoolean('cancel')) {
-          if (!db.getActiveTrivia(guild.id)) return interaction.reply({ content: 'No trivia is running right now.', ephemeral: true });
+          if (!db.getActiveTrivia(guild.id)) return (interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction))({ content: 'No trivia is running right now.', ephemeral: true });
           db.cancelTrivia(guild.id);
           return interaction.reply({ content: 'Trivia cancelled.', ephemeral: true });
         }
@@ -3412,10 +3412,10 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         const answer = (interaction.options.getString('answer') || '').trim();
         const reward = interaction.options.getInteger('reward') ?? 100;
         if (!question || !answer) {
-          return interaction.reply({ content: 'Give a question and an answer, for example `/trivia question:Capital of France? answer:Paris|Paris France`.', ephemeral: true });
+          return (interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction))({ content: 'Give a question and an answer, for example `/trivia question:Capital of France? answer:Paris|Paris France`.', ephemeral: true });
         }
         if (db.getActiveTrivia(guild.id)) {
-          return interaction.reply({ content: 'A trivia is already running. Cancel it first with `/trivia cancel:true`.', ephemeral: true });
+          return (interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction))({ content: 'A trivia is already running. Cancel it first with `/trivia cancel:true`.', ephemeral: true });
         }
 
         const endsAt = Date.now() + 10 * 60 * 1000;
