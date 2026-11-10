@@ -122,7 +122,7 @@ function helpFolderEmbed(folder, color, disabled = new Set()) {
     .addFields(cmds.map(c => ({
       name: '/' + c.name,
       value: c.name === 'starboard'
-        ? 'Usage: `/starboard setup <enabled> [source_channel] [destination_channel] [threshold]`'
+        ? c.description + '\nUsage: `/starboard setup <enabled> [source_channel] [destination_channel] [threshold]`'
         : c.description + '\nUsage: `' + helpUsage(c) + '`'
     })))
     .setFooter({ text: 'Choose another command to view it.' });
