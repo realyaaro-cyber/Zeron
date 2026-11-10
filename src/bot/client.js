@@ -1442,11 +1442,11 @@ function createClient(db) {
       module_games: 'Games module'
     };
     const botRequirements = {
-      welcome: 'ZERON must be able to send messages in the configured welcome channel.',
+      welcome: 'To deliver welcome messages, ZERON needs Send Messages in the configured welcome channel; this is a bot-side requirement, not an extra caller permission.',
       'track-invite': 'ZERON also needs Manage Server to inspect invite usage, and access to the configured log channel.',
-      'enable-level-up': 'ZERON must be able to send messages in the configured announcement channel; role rewards also need Manage Roles and a manageable reward role.',
+      'enable-level-up': 'To deliver announcements, ZERON needs Send Messages in the configured announcement channel; assigning configured role rewards additionally needs Manage Roles and a reward role below ZERON’s highest role.',
       'role-reward': 'ZERON needs Manage Roles, and the reward role must be below ZERON’s highest role.',
-      trivia: 'ZERON must be able to send and manage the trivia interaction in the channel.',
+      trivia: 'ZERON must be able to send messages in the channel for the trivia question and result.',
       kick: 'ZERON needs Kick Members and its highest role must be above the target; the caller’s highest role must also be higher than the target unless the caller is the server owner.',
       ban: 'ZERON needs Ban Members and its highest role must be above the target; the caller’s highest role must also be higher than the target unless the caller is the server owner.',
       unban: 'ZERON needs Ban Members.',
@@ -1457,7 +1457,7 @@ function createClient(db) {
       unjail: 'ZERON needs Manage Roles and must be able to restore the member’s saved roles.',
       vaultalert: 'ZERON needs access to the configured alert channel to post vault alerts.',
       vaultpost: 'A matching vault alert must exist, and ZERON must be able to post in its configured Vault Intel channel.',
-      aichat: 'An AI API key must be configured, and ZERON must be able to send messages in the selected channel.'
+      aichat: 'Enabling the channel does not itself require an API key; for AI replies to work, an AI API key must be configured and ZERON needs Send Messages in the selected channel.'
     };
 
     return commands.map(command => {
