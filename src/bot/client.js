@@ -1507,8 +1507,7 @@ function createClient(db) {
         'Every slash command is server-only. Except /manage-cmnds, commands can be disabled for the whole server or restricted for an individual member; /manage-cmnds is server-owner-only and exempt from those two command-block lists. Module-linked commands also stop working when their module is off. The guide lists configured command permissions and known runtime checks, but it does not reveal the current member’s live permissions, restrictions, module settings, role hierarchy, bot permissions, or channel access. Do not guess a person’s access: explain the known rule and say the server’s current settings must be checked. Distinguish the caller’s permissions from permissions ZERON itself needs.',
         '',
         'ZERON feature guide: Dashboard/admin configuration covers channels, welcome, AutoMod, verification, auto-role, reaction roles, tickets, custom commands, embeds, scheduled announcements, leveling, and invite tracking. Moderation commands include kick, ban, unban, timeout, untimeout, and purge; jail/unjail are owner-only. Community features include rank, leaderboard, birthday, AFK, giveaways, and tickets. Economy includes pay, bank (2% base interest per 24h), inventory, transactions, profile, collectibles, and restricted devgive/ownergive. Collectibles listed in the project: Common Crystal 500, Rare Phoenix 2,500, Epic Dragon 10,000, Legendary Crown 50,000 coins. Fishing has rods, bait, catches, quests, XP/levels, and selling. Games include slots and trivia. /guild opens guild management; creation costs 500 coins and guild wars are supported. Utilities include Roblox linking, vault alerts, ping, serverinfo, and userinfo.',
-        'Some features may be disabled or configured differently per server. For menu-based features, direct members to the relevant command/menu. Never promise an effect beyond what the live command displays.',
-        WANTED_GAME_KNOWLEDGE
+        'Some features may be disabled or configured differently per server. For menu-based features, direct members to the relevant command/menu. Never promise an effect beyond what the live command displays.'
       ].join('\n');
     }
     return [
@@ -1536,9 +1535,9 @@ function createClient(db) {
 
   function aiMinimalSystemPrompt(userText = '') {
     const text = String(userText || '').toLowerCase();
-    const asksWanted = /\\b(wanted|devvgames|oasis city|rod|sir\\.b|bert|ofy|vault|atm|mission|vehicle|roblox)\\b/.test(text);
-    const asksZeron = /\\b(zeron|\\/help|\\/commands|dashboard|ticket|verification|moderation|economy|coins|guild|fishing|trivia|slots|rank|leaderboard|permission|command)\\b/.test(text);
-    const asksAccess = /\\b(permission|permissions|who can|access|owner.only|restricted|admin|moderator|role)\\b/.test(text);
+    const asksWanted = /\b(wanted|devvgames|oasis city|rod|sir\.b|bert|ofy|vault|atm|mission|vehicle|roblox)\b/.test(text);
+    const asksZeron = /\b(zeron|\\/help|\\/commands|dashboard|ticket|verification|moderation|economy|coins|guild|fishing|trivia|slots|rank|leaderboard|permission|command)\b/.test(text);
+    const asksAccess = /\b(permission|permissions|who can|access|owner.only|restricted|admin|moderator|role)\b/.test(text);
     const parts = [
       'You are ZERON, a friendly Discord assistant. Reply naturally and concisely in the user’s language; support English, Hinglish, Malay, Indonesian, Filipino/Tagalog, and Bangla. Default Bangla to Banglish unless Bengali script is requested.',
       'Never invent commands, features, prices, permissions, or server facts. If unsure, say so. Explain actions but never claim you performed Discord actions. Never ping users or use mass mentions.'
@@ -1546,7 +1545,7 @@ function createClient(db) {
     if (asksZeron) parts.push('ZERON feature guide: ' + ZERON_FEATURE_KNOWLEDGE);
     if (asksZeron && asksAccess) parts.push('Configured command access rules: ' + aiCommandAccessGuide() + ' Every slash command is server-only. Except /manage-cmnds, commands can be disabled server-wide or restricted for an individual member; modules can also be off. Current member permissions and server settings are not visible to you, so never guess them.');
     if (asksWanted) parts.push(WANTED_GAME_KNOWLEDGE);
-    return parts.join('\\n');
+    return parts.join('\n');
   }
 
   // Removes the oldest complete conversational turn while preserving the system prompt
