@@ -1640,15 +1640,15 @@ function createClient(db) {
 
       // Discord messages are limited to 2,000 characters; send every part instead of silently truncating.
       const chunks = replyText.match(/[\s\S]{1,1900}/g) || [''];
-      await message.reply(toV2Payload({ content: chunks[0], allowedMentions: { repliedUser: false, parse: [] } }));
+      await message.reply({ content: chunks[0], allowedMentions: { repliedUser: false, parse: [] } });
       for (const chunk of chunks.slice(1)) {
-        await message.channel.send(toV2Payload({ content: chunk, allowedMentions: { repliedUser: false, parse: [] } }));
+        await message.channel.send({ content: chunk, allowedMentions: { repliedUser: false, parse: [] } });
       }
       if (finishReason === 'length') {
-        await message.channel.send(toV2Payload({
+        await message.channel.send({
           content: 'I reached the response limit. Reply to my last message with **continue** and I’ll pick up from this same context.',
           allowedMentions: { parse: [] }
-        }));
+        });
       }
     } catch (error) {
       console.error('AI chat failed:', error.message);
@@ -3550,7 +3550,10 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           return sendPlainReply({ content: '✅ AI chat is off.', ephemeral: true });
         }
         const aiChannel = interaction.options.getChannel('channel') || interaction.channel;
-        if (!aiChannel || !aiChannel.isTextBased()) return interaction.reply({ content: 'Pick a text or announcement channel.', ephemeral: true });
+        if (!aiChannel || !aiChannel.isTextBased()) {
+          const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+          return sendPlainReply({ content: 'Pick a text or announcement channel.', ephemeral: true });
+        }
         db.setAiChannel(guildForAi.id, aiChannel.id);
         const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
         return sendPlainReply({
