@@ -3281,10 +3281,8 @@ ${failed} could not receive coins (balance limit).` : ''}`;
 
         if (channel) {
           if (!channel.isTextBased() || channel.guildId !== guild.id) {
-            return interaction.reply({
-              content: 'Choose a text channel in this server.',
-              ephemeral: true
-            });
+            const plainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+            return plainReply({ content: 'Choose a text channel in this server.', ephemeral: true });
           }
           patch.welcome_channel_id = channel.id;
         }
@@ -3292,10 +3290,8 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         if (message !== null) patch.welcome_message = message;
 
         if (Object.keys(patch).length === 0) {
-          return interaction.reply({
-            content: 'Choose at least one option: enabled, channel, or message.',
-            ephemeral: true
-          });
+          const plainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+          return plainReply({ content: 'Choose at least one option: enabled, channel, or message.', ephemeral: true });
         }
 
         db.saveSettings(guild.id, patch);
