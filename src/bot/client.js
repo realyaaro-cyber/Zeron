@@ -1455,7 +1455,7 @@ function createClient(db) {
       purge: 'ZERON needs Manage Messages in the channel.',
       jail: 'ZERON needs Manage Roles; a jail role must be configured and manageable, and the target must be below ZERON in role hierarchy.',
       unjail: 'ZERON needs Manage Roles and must be able to restore the member’s saved roles.',
-      vaultalert: 'For alert delivery, ZERON needs Send Messages in the configured alert channel.'
+      vaultalert: 'For alert delivery, ZERON needs Send Messages in the configured alert channel.',
       vaultpost: 'A matching vault alert must exist, and ZERON must be able to post in its configured Vault Intel channel.',
       aichat: 'Enabling the channel does not itself require an API key; for AI replies to work, an AI API key must be configured and ZERON needs Send Messages in the selected channel.'
     };
