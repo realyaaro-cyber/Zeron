@@ -1,7 +1,10 @@
 // Community-reported reference notes for Wanted by DevvGames (Roblox).
 // This is an AI knowledge source only. It does not change gameplay commands or bot features.
-// Research snapshot: 2026-11-10. Primary source: https://wantedrblx.com/ (community wiki).\n// The community wiki is not affiliated with DevvGames/Roblox. Values and locations may change.
+// Research snapshot: 2026-11-10. Primary source: https://wantedrblx.com/ (community wiki).
+// The community wiki is not affiliated with DevvGames/Roblox. Values and locations may change.
 // Keep confidence labels visible in answers; never present unverified community data as live facts.
+
+const { WANTED_MISSION_KNOWLEDGE } = require('./wanted-mission-knowledge');
 
 const WANTED_GAME_KNOWLEDGE = [
   'WANTED BY DEVVGAMES — COMMUNITY GAME GUIDE',
@@ -85,4 +88,6 @@ const WANTED_GAME_KNOWLEDGE = [
   '- This is an information-only knowledge source. Do not claim to execute in-game actions or control a player’s Roblox account.'
 ].join('\n');
 
-module.exports = { WANTED_GAME_KNOWLEDGE };
+module.exports = {
+  WANTED_GAME_KNOWLEDGE: [WANTED_GAME_KNOWLEDGE, WANTED_MISSION_KNOWLEDGE].join('\n\n')
+};
