@@ -1689,7 +1689,7 @@ function createClient(db) {
 
     if (endRequested && (sessionActive || isReplyToBot || wakeRequested)) {
       aiConversations.delete(conversationKey);
-      return message.reply(toV2Payload({ content: 'No problem! Just say “Hey ZERON” whenever you need me again.', allowedMentions: { repliedUser: false, parse: [] } })).catch(() => {});
+      return message.reply({ content: 'No problem! Just say “Hey ZERON” whenever you need me again.', allowedMentions: { repliedUser: false, parse: [] } }).catch(() => {});
     }
 
     const last = aiCooldown.get(conversationKey) || 0;
