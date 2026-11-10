@@ -969,7 +969,8 @@ function createClient(db) {
       new ButtonBuilder().setCustomId('nx-ticket-close').setLabel('Close').setStyle(ButtonStyle.Danger)
     );
     await channel.send(toV2Payload({ embeds: [embed], components: [row], allowedMentions: { parse: [] } }));
-    return interaction.reply({ content: '🎫 Your ticket is ready: <#' + channel.id + '>', ephemeral: true });
+    const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+    return replyPlain({ content: '🎫 Your ticket is ready: <#' + channel.id + '>', ephemeral: true });
   }
 
   async function claimTicket(interaction) {
@@ -986,7 +987,8 @@ function createClient(db) {
     if (!db.claimTicket(interaction.channelId, interaction.user.id)) {
       return ticketError(interaction, 'Someone else just claimed this ticket.');
     }
-    return interaction.reply({ content: '✅ <@' + interaction.user.id + '> claimed this ticket.' });
+    const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+    return replyPlain({ content: '✅ <@' + interaction.user.id + '> claimed this ticket.' });
   }
 
   async function buildTranscript(channel) {
@@ -1033,7 +1035,8 @@ function createClient(db) {
       })).catch(error => console.error('Transcript send failed:', error.message));
     }
 
-    await interaction.editReply({ content: 'Closing this ticket in 5 seconds…' });
+    const editPlainReply = interaction.__v2OriginalMethods?.editReply || interaction.editReply.bind(interaction);
+    await editPlainReply({ content: 'Closing this ticket in 5 seconds…' });
     setTimeout(() => {
       interaction.channel.delete('ZERON ticket closed').catch(error => console.error('Ticket delete failed:', error.message));
     }, 5000);
