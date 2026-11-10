@@ -1180,9 +1180,11 @@ function createClient(db) {
   }
 
   async function starboardStarCount(reaction) {
-    const users = await reaction.users.fetch();
-    return users.filter(user => !user.bot).size;
+    // The bot's own seed reaction is excluded; reaction.count already covers large reactions.
+    return Math.max(0, Number(reaction.count || 0) - (reaction.me ? 1 : 0));
   }
+
+  const starboardPublishing = new Set();
 
   async function refreshStarboardPost(sourceMessage, reaction, config) {
     const count = await starboardStarCount(reaction);
@@ -1201,6 +1203,10 @@ function createClient(db) {
       return;
     }
 
+    const publishKey = sourceMessage.guild.id + ':' + sourceMessage.id;
+    if (starboardPublishing.has(publishKey)) return;
+    starboardPublishing.add(publishKey);
+    try {
     const authorName = sourceMessage.member?.displayName || sourceMessage.author.globalName || sourceMessage.author.username;
     const description = (sourceMessage.content || '*No text content*').slice(0, 4000);
     const attachmentLines = [...sourceMessage.attachments.values()].slice(0, 8)
@@ -1224,6 +1230,9 @@ function createClient(db) {
     });
     await posted.react('⭐').catch(() => {});
     db.saveStarboardPost(sourceMessage.guild.id, sourceMessage.id, posted.id, count);
+    } finally {
+      starboardPublishing.delete(publishKey);
+    }
   }
 
   async function handleStarboardReaction(reaction, user) {
