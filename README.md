@@ -42,7 +42,6 @@ Run `/help` in your server to see the full list with usage.
    | `PORT` | Port for the dashboard (optional) |
    | `BASE_URL` | Public address of the dashboard (optional) |
    | `DATABASE_PATH` | Where the SQLite file is stored (optional) |
-
    | `AI_PROVIDER` | Optional provider label shown in logs (for example, `Groq`, `OpenRouter`, or `My Proxy`) |
    | `AI_BASE_URL` | OpenAI-compatible API base URL, usually ending in `/v1`. Defaults to `https://proxy.gonkabroker.com/v1`. |
    | `AI_MODEL` | Exact model ID from the selected provider. Defaults to `zai-org/GLM-5.3-Flash` for non-OpenRouter providers. |
@@ -50,7 +49,7 @@ Run `/help` in your server to see the full list with usage.
    
    Example AI configuration:
    ```env
-   AI_PROVIDER=My AI Provider
+   AI_PROVIDER="My AI Provider"
    AI_BASE_URL=https://api.example.com/v1
    AI_MODEL=provider/model-id
    AI_API_KEY=your-private-api-key
