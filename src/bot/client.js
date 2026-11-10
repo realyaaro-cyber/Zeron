@@ -1357,12 +1357,12 @@ function createClient(db) {
       const card = new djs.ContainerBuilder()
         .setAccentColor(accent)
         .addTextDisplayComponents(new djs.TextDisplayBuilder().setContent(
-          `### 🚨 ${rule.label} Vault detected\n<@&${rule.role_id}> a **${rule.label} Vault** was spotted in the vault intel.`))
+          `### 🚨 ${rule.label} Vault Alert\n<@&${rule.role_id}> ${rule.label} Vault has been spotted!`))
         .addSeparatorComponents(new djs.SeparatorBuilder().setDivider(true).setSpacing(djs.SeparatorSpacingSize.Small))
         .addTextDisplayComponents(new djs.TextDisplayBuilder().setContent(
-          '💡 **Pro Tip:** Looking to earn extra cash? Complete bank runs in the private server, then repeat the run when you’re ready. Consistent runs can help you build your cash balance!'))
+          '💡**Tip:** Looking to earn extra cash? Complete bank runs in the private server, then repeat the run when you’re ready. Consistent runs can help you build your cash balance!'))
         .addSeparatorComponents(new djs.SeparatorBuilder().setDivider(true).setSpacing(djs.SeparatorSpacingSize.Small))
-        .addTextDisplayComponents(new djs.TextDisplayBuilder().setContent(`🕒 Detected: <t:${detectedAt}:F>`));
+        .addTextDisplayComponents(new djs.TextDisplayBuilder().setContent(`🕒 <t:${detectedAt}:F>`));
       await message.channel.send({
         components: [card],
         flags: djs.MessageFlags.IsComponentsV2,
@@ -1683,12 +1683,12 @@ function createClient(db) {
     return new djs.ContainerBuilder()
       .setAccentColor(accent)
       .addTextDisplayComponents(new djs.TextDisplayBuilder().setContent(
-        `### 🚨 ${rule.label} Vault detected\n<@&${rule.role_id}> a **${rule.label} Vault** was spotted in the vault intel.`))
+        `### 🚨 ${rule.label} Vault Alert\n<@&${rule.role_id}> ${rule.label} Vault has been spotted!`))
       .addSeparatorComponents(new djs.SeparatorBuilder().setDivider(true).setSpacing(djs.SeparatorSpacingSize.Small))
       .addTextDisplayComponents(new djs.TextDisplayBuilder().setContent(
-        '💡 **Pro Tip:** Looking to earn extra cash? Complete bank runs in the private server, then repeat the run when you’re ready. Consistent runs can help you build your cash balance!'))
+        '💡**Tip:** Looking to earn extra cash? Complete bank runs in the private server, then repeat the run when you’re ready. Consistent runs can help you build your cash balance!'))
       .addSeparatorComponents(new djs.SeparatorBuilder().setDivider(true).setSpacing(djs.SeparatorSpacingSize.Small))
-      .addTextDisplayComponents(new djs.TextDisplayBuilder().setContent(`🕒 Detected: <t:${detectedAt}:F>`));
+      .addTextDisplayComponents(new djs.TextDisplayBuilder().setContent(`🕒 <t:${detectedAt}:F>`));
   }
 
   async function postVaultNow(guild, rule) {
