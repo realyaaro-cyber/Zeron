@@ -11,9 +11,9 @@ const commands = [
     .setDescription('Configure the server Starboard.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addSubcommand(sub => sub.setName('setup').setDescription('Set the source, destination, star threshold, and status.')
-      .addChannelOption(o => o.setName('source_channel').setDescription('Channel where members post messages to collect stars').setRequired(true))
-      .addChannelOption(o => o.setName('destination_channel').setDescription('Channel where eligible messages are reposted').setRequired(true))
-      .addIntegerOption(o => o.setName('threshold').setDescription('Unique member ⭐ reactions needed (for example 5, 10, or 100)').setMinValue(1).setMaxValue(100000).setRequired(true))
+      .addChannelOption(o => o.setName('source_channel').setDescription('Source channel (required when setting up for the first time)').setRequired(false))
+      .addChannelOption(o => o.setName('destination_channel').setDescription('Destination channel (required when setting up for the first time)').setRequired(false))
+      .addIntegerOption(o => o.setName('threshold').setDescription('Unique member ⭐ reactions needed (required for first-time setup)').setMinValue(1).setMaxValue(100000).setRequired(false))
       .addBooleanOption(o => o.setName('enabled').setDescription('True = enable Starboard, False = disable it').setRequired(true))),
 
   new SlashCommandBuilder().setName('track-invite')
