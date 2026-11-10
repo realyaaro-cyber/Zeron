@@ -3491,7 +3491,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
               `Saved destination channel: <#${saved.destination_channel_id}>`,
               `Saved star threshold: ${saved.threshold}`,
               'Existing starboard posts will remain in the destination channel.'
-            ].join('\\n'),
+            ].join('\n'),
             ephemeral: true
           });
         }
@@ -3553,7 +3553,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
             `Star threshold: ${saved.threshold} stars`,
             'Enabled: Yes',
             'ZERON will add a star reaction to new messages in the source channel and repost eligible messages when they reach the threshold.'
-          ].join('\\n'),
+          ].join('\n'),
           ephemeral: true
         });
       }
