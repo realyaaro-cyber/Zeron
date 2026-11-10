@@ -1823,16 +1823,16 @@ function createClient(db) {
         const inviterText = inviterId ? `<@${inviterId}>` : 'Unknown';
         const totalText = total === null ? 'Unknown' : String(total);
 
+        const joinedTimestamp = Math.floor(new Date(joinedAt).getTime() / 1000);
         const embed = new EmbedBuilder()
           .setColor(db.accentColor(member.guild.id))
-          .setTitle('📨 ZERON Invite Tracker')
-          .addFields(
-            { name: 'Inviter', value: inviterText, inline: true },
-            { name: 'Joined Member', value: `<@${member.id}>`, inline: true },
-            { name: 'Join Time', value: `<t:${Math.floor(new Date(joinedAt).getTime() / 1000)}:F>`, inline: false },
-            { name: 'Inviter Total Tracked Invites', value: totalText, inline: true }
-          )
-          .setTimestamp(new Date(joinedAt));
+          .setTitle('📨 New Member Joined')
+          .setDescription(
+            `**Member:** <@${member.id}>\n` +
+            `**Invited by:** ${inviterText}\n` +
+            `**Tracked invites:** ${totalText}\n` +
+            `**Joined:** <t:${joinedTimestamp}:R>`
+          );
 
         // The bot must be able to see, write, and embed in the tracker channel, or nothing shows up.
         const me = member.guild.members.me;
