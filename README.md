@@ -69,7 +69,7 @@ Run `/help` in your server to see the full list with usage.
    AI_BACKUP_2_API_KEY=your_other_provider_key
    ```
 
-   ZERON tries the primary first, then configured backups in numerical order. It switches on HTTP 429 rate limits, unavailable models, payment/quota errors, and temporary network or server errors. It does not hide invalid-key or other configuration errors. Up to ten backups are supported. All providers must expose an OpenAI-compatible `/chat/completions` endpoint; providers with a different API format need a dedicated adapter. Existing `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` variables remain supported for backward compatibility.
+   ZERON tries the primary first, then configured backups in numerical order. It switches on HTTP 429 rate limits, unavailable models, payment/quota errors, and temporary network or server errors. Invalid or unauthorized provider credentials are logged and skipped so later backups can still be tried; if no provider works, the final provider error is reported. Up to ten backups are supported. All providers must expose an OpenAI-compatible `/chat/completions` endpoint; providers with a different API format need a dedicated adapter. Existing `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` variables remain supported for backward compatibility.
 
 5. **Install and start:**
    ```
