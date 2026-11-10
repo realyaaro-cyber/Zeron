@@ -3629,14 +3629,15 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         const guildId = interaction.guild.id;
         const userId = interaction.user.id;
         const action = interaction.options.getString('action');
+        const plainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
         if (action === 'off') {
-          if (!db.getAfk(guildId, userId)) return interaction.reply({ content: 'You are not AFK right now.', ephemeral: true });
+          if (!db.getAfk(guildId, userId)) return plainReply({ content: 'You are not AFK right now.', ephemeral: true });
           db.clearAfk(guildId, userId);
-          return interaction.reply({ content: '✅ AFK is now off. Welcome back!', ephemeral: true });
+          return plainReply({ content: '✅ AFK is now off. Welcome back!', ephemeral: true });
         }
         const reason = (interaction.options.getString('reason') || '').trim() || 'No reason given';
         db.setAfk(guildId, userId, reason, Date.now());
-        return interaction.reply({ content: `💤 AFK is now on: ${reason}`, ephemeral: true });
+        return plainReply({ content: `💤 AFK is now on: ${reason}`, ephemeral: true });
       }
 
       if (commandName === 'birthday') {
