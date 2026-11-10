@@ -35,7 +35,7 @@ const HELP_FOLDERS = [
     id: 'restricted',
     label: '📁 Developer & Owner commands',
     description: 'Restricted commands. Only the developer or the server owner can use them.',
-    names: ['devgive', 'ownergive', 'jail', 'unjail', 'manage-cmnds', 'roleemoji']
+    names: ['devgive', 'ownergive', 'jail', 'unjail', 'manage-cmnds']
   },
   {
     id: 'staff',
@@ -68,7 +68,6 @@ function helpMainCommands() {
 }
 
 function helpUsage(cmd) {
-  if (cmd.name === 'roleemoji') return '/roleemoji <role> <emoji>';
   const parts = (cmd.options || []).map(o => (o.required ? '<' + o.name + '>' : '[' + o.name + ']'));
   return ['/' + cmd.name, ...parts].join(' ');
 }
@@ -3465,43 +3464,6 @@ ${failed} could not receive coins (balance limit).` : ''}`;
     }
       const { commandName } = interaction;
       if (!interaction.guild || !interaction.guildId) return interaction.reply({ content: 'This command only works in a server.', ephemeral: true });
-      if (commandName === 'roleemoji') {
-        const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
-        const guild = interaction.guild;
-
-        if (interaction.user.id !== guild.ownerId) {
-          return replyPlain({ content: 'Only the server owner can use this command.', ephemeral: true });
-        }
-
-        const role = interaction.options.getRole('role', true);
-        const emoji = interaction.options.getString('emoji', true).trim();
-        const botMember = guild.members.me;
-
-        // Role names support Unicode emoji, not Discord's custom-emoji markup.
-        if (!/\p{Extended_Pictographic}/u.test(emoji) || [...new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(emoji)].length !== 1) {
-          return replyPlain({ content: 'Please provide one standard Unicode emoji, such as 💎 or 💜. Custom server emoji codes cannot render inside role names.', ephemeral: true });
-        }
-        if (!botMember?.permissions.has(PermissionFlagsBits.ManageRoles)) {
-          return replyPlain({ content: 'ZERON needs the Manage Roles permission to rename a role.', ephemeral: true });
-        }
-        if (!role.editable) {
-          return replyPlain({ content: 'ZERON cannot edit that role. Move ZERON’s highest role above the selected role and try again.', ephemeral: true });
-        }
-
-        const baseName = role.name.startsWith(emoji) ? role.name.slice(emoji.length).trimStart() : role.name;
-        const newName = emoji + ' ' + baseName;
-        if (newName.length > 100) {
-          return replyPlain({ content: 'That role name is too long to add an emoji. Shorten the role name first.', ephemeral: true });
-        }
-        try {
-          await role.edit({ name: newName, reason: 'Server owner added a Unicode emoji prefix with ZERON' });
-          return replyPlain({ content: 'Updated role name: **' + newName + '**. This works without server boosts or custom role icons.', ephemeral: true });
-        } catch (error) {
-          console.error('Role emoji prefix failed:', error);
-          return replyPlain({ content: 'Could not update that role: ' + (error.message || 'Unknown Discord error.'), ephemeral: true });
-        }
-      }
-
       if (commandName === 'starboard') {
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
           return interaction.reply({ content: 'You need Manage Server permission to configure Starboard.', ephemeral: true });
