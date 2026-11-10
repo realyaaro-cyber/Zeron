@@ -3509,12 +3509,12 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         });
         return interaction.reply({
           content: [
-            '⭐ **Starboard settings saved!**',
-            `**Source channel:** <#${saved.source_channel_id}>`,
-            `**Destination channel:** <#${saved.destination_channel_id}>`,
-            `**Star threshold:** ${saved.threshold} unique member stars`,
-            `**Enabled:** ${saved.enabled ? 'True' : 'False'}`,
-            enabled ? 'ZERON will add ⭐ to new messages in the source channel and repost them after they reach the threshold.' : 'Starboard is disabled. Existing posts remain in the destination channel.'
+            'Starboard settings saved.',
+            `Source channel: <#${saved.source_channel_id}>`,
+            `Destination channel: <#${saved.destination_channel_id}>`,
+            `Star threshold: ${saved.threshold} stars`,
+            `Enabled: ${saved.enabled ? 'Yes' : 'No'}`,
+            enabled ? 'ZERON will add a star reaction to new messages in the source channel and repost eligible messages when they reach the threshold.' : 'Starboard is disabled. Existing posts remain in the destination channel.'
           ].join('\n'),
           ephemeral: true
         });
