@@ -41,7 +41,7 @@ const HELP_FOLDERS = [
     id: 'staff',
     label: '🛡️ Administrator & Moderator commands',
     description: 'For admins and moderators. These need Manage Server, Kick, Ban, Timeout or Manage Messages.',
-    names: ['welcome', 'track-invite', 'enable-level-up', 'role-reward', 'kick', 'ban', 'unban', 'timeout', 'untimeout', 'purge', 'trivia', 'vaultalert', 'vaultpost', 'aichat']
+    names: ['welcome', 'track-invite', 'enable-level-up', 'role-reward', 'starboard', 'kick', 'ban', 'unban', 'timeout', 'untimeout', 'purge', 'trivia', 'vaultalert', 'vaultpost', 'aichat']
   },
   {
     id: 'member',
@@ -1179,11 +1179,71 @@ function createClient(db) {
     }
   }
 
+  async function starboardStarCount(reaction) {
+    const users = await reaction.users.fetch();
+    return users.filter(user => !user.bot).size;
+  }
+
+  async function refreshStarboardPost(sourceMessage, reaction, config) {
+    const count = await starboardStarCount(reaction);
+    const existing = db.getStarboardPost(sourceMessage.guild.id, sourceMessage.id);
+    if (!existing && count < Number(config.threshold)) return;
+    const destination = sourceMessage.guild.channels.cache.get(config.destination_channel_id);
+    if (!destination?.isTextBased() || typeof destination.send !== 'function') return;
+
+    if (existing) {
+      const posted = await destination.messages.fetch(existing.destination_message_id).catch(() => null);
+      if (!posted) return;
+      const embed = posted.embeds[0] ? EmbedBuilder.from(posted.embeds[0]) : new EmbedBuilder();
+      embed.setFooter({ text: `⭐ ${count} star${count === 1 ? '' : 's'}` });
+      await posted.edit({ embeds: [embed] }).catch(error => console.error('Starboard count update failed:', error.message));
+      db.updateStarboardPostCount(sourceMessage.guild.id, sourceMessage.id, count);
+      return;
+    }
+
+    const authorName = sourceMessage.member?.displayName || sourceMessage.author.globalName || sourceMessage.author.username;
+    const description = (sourceMessage.content || '*No text content*').slice(0, 4000);
+    const attachmentLines = [...sourceMessage.attachments.values()].slice(0, 8)
+      .map(file => `[📎 ${String(file.name || 'Attachment').slice(0, 80)}](${file.url})`);
+    const embed = new EmbedBuilder()
+      .setColor(db.accentColor(sourceMessage.guild.id))
+      .setAuthor({ name: authorName.slice(0, 250), iconURL: sourceMessage.author.displayAvatarURL() })
+      .setDescription([description, ...attachmentLines].join('\n\n').slice(0, 4096))
+      .addFields(
+        { name: 'Original channel', value: `<#${sourceMessage.channel.id}>`, inline: true },
+        { name: 'Original message', value: `[Jump to message](${sourceMessage.url})`, inline: true }
+      )
+      .setTimestamp(sourceMessage.createdAt)
+      .setFooter({ text: `⭐ ${count} stars` });
+
+    const files = [...sourceMessage.attachments.values()].slice(0, 10).map(file => file.url);
+    const posted = await destination.send({
+      embeds: [embed],
+      files,
+      allowedMentions: { parse: [] }
+    });
+    await posted.react('⭐').catch(() => {});
+    db.saveStarboardPost(sourceMessage.guild.id, sourceMessage.id, posted.id, count);
+  }
+
+  async function handleStarboardReaction(reaction, user) {
+    if (user.bot || reaction.emoji.name !== '⭐') return;
+    if (reaction.partial) reaction = await reaction.fetch();
+    if (reaction.message.partial) await reaction.message.fetch();
+    const sourceMessage = reaction.message;
+    if (!sourceMessage.guild) return;
+    const config = db.getStarboardSettings(sourceMessage.guild.id);
+    if (!config || !config.enabled || sourceMessage.channel.id !== config.source_channel_id) return;
+    await refreshStarboardPost(sourceMessage, reaction, config);
+  }
+
   client.on(Events.MessageReactionAdd, (reaction, user) => {
     changeReactionRole(reaction, user, true).catch(error => console.error('Reaction role add failed:', error.message));
+    handleStarboardReaction(reaction, user).catch(error => console.error('Starboard reaction add failed:', error.message));
   });
   client.on(Events.MessageReactionRemove, (reaction, user) => {
     changeReactionRole(reaction, user, false).catch(error => console.error('Reaction role remove failed:', error.message));
+    handleStarboardReaction(reaction, user).catch(error => console.error('Starboard reaction remove failed:', error.message));
   });
 
   async function writeLog(guild, action, targetId, reason, moderatorId) {
@@ -2235,6 +2295,16 @@ const fishWaitMessages = new Map();
       await handleAIChat(message).catch(error => console.error('AI chat error:', error.message));
     }
     if (!message.guild || message.author.bot) return;
+
+    // In the configured source channel, seed each member message with a ⭐ reaction.
+    try {
+      const starboard = db.getStarboardSettings(message.guild.id);
+      if (starboard?.enabled && message.channel.id === starboard.source_channel_id) {
+        await message.react('⭐').catch(error => console.error('Starboard seed reaction failed:', error.message));
+      }
+    } catch (error) {
+      console.error('Starboard source-message handler failed:', error.message);
+    }
 
     // Anyone who mentions an AFK member gets a short reply with the reason and how long they have been away.
     try {
@@ -3385,6 +3455,62 @@ ${failed} could not receive coins (balance limit).` : ''}`;
     }
       const { commandName } = interaction;
       if (!interaction.guild || !interaction.guildId) return interaction.reply({ content: 'This command only works in a server.', ephemeral: true });
+      if (commandName === 'starboard') {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+          return interaction.reply({ content: 'You need Manage Server permission to configure Starboard.', ephemeral: true });
+        }
+        const source = interaction.options.getChannel('source_channel', true);
+        const destination = interaction.options.getChannel('destination_channel', true);
+        const threshold = interaction.options.getInteger('threshold', true);
+        const enabled = interaction.options.getBoolean('enabled', true);
+        if (!source.isTextBased() || source.guildId !== guild.id || typeof source.messages?.fetch !== 'function') {
+          return interaction.reply({ content: 'Choose a text channel in this server as the source channel.', ephemeral: true });
+        }
+        if (!destination.isTextBased() || destination.guildId !== guild.id || typeof destination.send !== 'function') {
+          return interaction.reply({ content: 'Choose a text channel in this server as the destination channel.', ephemeral: true });
+        }
+        if (source.id === destination.id) {
+          return interaction.reply({ content: 'Source and destination channels must be different.', ephemeral: true });
+        }
+        const botMember = guild.members.me;
+        const sourcePermissions = source.permissionsFor(botMember);
+        const destinationPermissions = destination.permissionsFor(botMember);
+        const sourceReady = sourcePermissions?.has([
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.AddReactions
+        ]);
+        const destinationReady = destinationPermissions?.has([
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.EmbedLinks,
+          PermissionFlagsBits.AttachFiles,
+          PermissionFlagsBits.AddReactions
+        ]);
+        if (!sourceReady || !destinationReady) {
+          return interaction.reply({
+            content: 'ZERON needs View Channel, Read Message History and Add Reactions in the source channel, plus View Channel, Send Messages, Embed Links, Attach Files and Add Reactions in the destination channel.',
+            ephemeral: true
+          });
+        }
+        const saved = db.saveStarboardSettings(guild.id, {
+          sourceChannelId: source.id,
+          destinationChannelId: destination.id,
+          threshold,
+          enabled
+        });
+        return interaction.reply({
+          content: [
+            '⭐ **Starboard settings saved!**',
+            `**Source channel:** <#${saved.source_channel_id}>`,
+            `**Destination channel:** <#${saved.destination_channel_id}>`,
+            `**Star threshold:** ${saved.threshold} unique member stars`,
+            `**Enabled:** ${saved.enabled ? 'True' : 'False'}`,
+            enabled ? 'ZERON will add ⭐ to new messages in the source channel and repost them after they reach the threshold.' : 'Starboard is disabled. Existing posts remain in the destination channel.'
+          ].join('\n'),
+          ephemeral: true
+        });
+      }
       if (commandName === 'fish') {
       const embed = new EmbedBuilder()
         .setColor(db.accentColor(interaction.guildId))
