@@ -42,20 +42,34 @@ Run `/help` in your server to see the full list with usage.
    | `PORT` | Port for the dashboard (optional) |
    | `BASE_URL` | Public address of the dashboard (optional) |
    | `DATABASE_PATH` | Where the SQLite file is stored (optional) |
-   | `AI_PROVIDER` | Optional provider label shown in logs (for example, `Groq`, `OpenRouter`, or `My Proxy`) |
-   | `AI_BASE_URL` | OpenAI-compatible API base URL, usually ending in `/v1`. Defaults to `https://proxy.gonkabroker.com/v1`. |
-   | `AI_MODEL` | Exact model ID from the selected provider. Defaults to `zai-org/GLM-5.3-Flash` for non-OpenRouter providers. |
-   | `AI_API_KEY` | API key for the selected provider. Keep it secret. |
-   
-   Example AI configuration:
+   | `AI_PROVIDER` | Primary provider label shown in logs (for example, `Groq` or `OpenRouter`) |
+   | `AI_BASE_URL` | Primary OpenAI-compatible API base URL, usually ending in `/v1`. |
+   | `AI_MODEL` | Primary provider's exact model ID. |
+   | `AI_API_KEY` | Primary provider API key. Keep it secret. |
+   | `AI_BACKUP_1_PROVIDER` through `AI_BACKUP_10_PROVIDER` | Optional backup provider labels. |
+   | `AI_BACKUP_1_BASE_URL` through `AI_BACKUP_10_BASE_URL` | Each backup provider's OpenAI-compatible API base URL. |
+   | `AI_BACKUP_1_MODEL` through `AI_BACKUP_10_MODEL` | Each backup provider's exact model ID. |
+   | `AI_BACKUP_1_API_KEY` through `AI_BACKUP_10_API_KEY` | Each backup provider's API key. Keep them secret. |
+
+   Example with Groq as primary and two different providers as backups:
    ```env
-   AI_PROVIDER="My AI Provider"
-   AI_BASE_URL=https://api.example.com/v1
-   AI_MODEL=provider/model-id
-   AI_API_KEY=your-private-api-key
+   AI_PROVIDER=Groq
+   AI_BASE_URL=https://api.groq.com/openai/v1
+   AI_MODEL=openai/gpt-oss-120b
+   AI_API_KEY=your_groq_key
+
+   AI_BACKUP_1_PROVIDER=OpenRouter
+   AI_BACKUP_1_BASE_URL=https://openrouter.ai/api/v1
+   AI_BACKUP_1_MODEL=your_openrouter_model_id
+   AI_BACKUP_1_API_KEY=your_openrouter_key
+
+   AI_BACKUP_2_PROVIDER=Another Provider
+   AI_BACKUP_2_BASE_URL=https://api.example.com/v1
+   AI_BACKUP_2_MODEL=provider/model-id
+   AI_BACKUP_2_API_KEY=your_other_provider_key
    ```
 
-   The AI integration uses the OpenAI-compatible `/chat/completions` API. Changing these environment variables is enough to switch compatible providers/models; providers with a different API format need a dedicated adapter. Existing `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` variables remain supported for backward compatibility.
+   ZERON tries the primary first, then configured backups in numerical order. It switches on HTTP 429 rate limits, unavailable models, payment/quota errors, and temporary network or server errors. It does not hide invalid-key or other configuration errors. Up to ten backups are supported. All providers must expose an OpenAI-compatible `/chat/completions` endpoint; providers with a different API format need a dedicated adapter. Existing `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` variables remain supported for backward compatibility.
 
 5. **Install and start:**
    ```
