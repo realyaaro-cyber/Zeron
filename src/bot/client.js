@@ -8,7 +8,6 @@ const { ChannelType } = require('discord.js');
 const { ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { commands, GUILD_ONLY_COMMANDS } = require('../commands/definitions');
 const { ZERON_FEATURE_KNOWLEDGE } = require('./knowledge');
-const { WANTED_GAME_KNOWLEDGE } = require('./wanted-knowledge');
 const { renderRankCard, loadPresetBackground, RANK_BACKGROUND_PRESETS, downloadAvatar } = require('./rank-card');
 const { addText: addV2Text, embedToContainer: convertEmbedToContainer, toV2Payload: buildV2Payload } = require('./components-v2');
 
@@ -1528,17 +1527,13 @@ function createClient(db) {
       access,
       'Every slash command is server-only. Except /manage-cmnds, commands can be disabled for the whole server or restricted for an individual member; /manage-cmnds is server-owner-only and exempt from those two command-block lists. Module-linked commands also stop working when their module is off. The guide lists configured command permissions and known runtime checks, but it does not reveal the current member’s live permissions, restrictions, module settings, role hierarchy, bot permissions, or channel access. Do not guess a person’s access: explain the known rule and say the server’s current settings must be checked. Distinguish the caller’s permissions from permissions ZERON itself needs.',
       '',
-      ZERON_FEATURE_KNOWLEDGE,
-      WANTED_GAME_KNOWLEDGE
+      ZERON_FEATURE_KNOWLEDGE
     ].join('\n');
   }
 
   function aiMinimalSystemPrompt(userText = '') {
     const text = String(userText || '').toLowerCase();
-    const asksWanted = /\b(wanted|devvgames|oasis city|rod|sir\.b|bert|ofy|vault|atm|mission|vehicle)\b/.test(text);
-    const asksRobloxCommand = /(?:^|\s)\/roblox\b/.test(text) ||
-      /\broblox\s+(?:command|link|account|profile|verify|verification)\b/.test(text);
-    const asksZeron = /\b(zeron|help|commands|dashboard|ticket|verification|moderation|economy|coins|guild|fishing|trivia|slots|rank|leaderboard|permission|command)\b/.test(text) || asksRobloxCommand;
+    const asksZeron = /\b(zeron|help|commands|dashboard|ticket|verification|moderation|economy|coins|guild|fishing|trivia|slots|rank|leaderboard|permission|command|roblox)\b/.test(text);
     const asksAccess = /\b(permission|permissions|who can|access|owner.only|restricted|admin|moderator|role)\b/.test(text);
     const parts = [
       'You are ZERON, a friendly Discord assistant. Reply naturally and concisely in the user’s language; support English, Hinglish, Malay, Indonesian, Filipino/Tagalog, and Bangla. Default Bangla to Banglish unless Bengali script is requested.',
@@ -1546,7 +1541,6 @@ function createClient(db) {
     ];
     if (asksZeron) parts.push('ZERON feature guide: ' + ZERON_FEATURE_KNOWLEDGE);
     if (asksZeron && asksAccess) parts.push('Configured command access rules: ' + aiCommandAccessGuide() + ' Every slash command is server-only. Except /manage-cmnds, commands can be disabled server-wide or restricted for an individual member; modules can also be off. Current member permissions and server settings are not visible to you, so never guess them.');
-    if (asksWanted) parts.push(WANTED_GAME_KNOWLEDGE);
     return parts.join('\n');
   }
 
