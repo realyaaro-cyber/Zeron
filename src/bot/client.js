@@ -3348,8 +3348,9 @@ ${failed} could not receive coins (balance limit).` : ''}`;
       }
 
       if (commandName === 'role-reward') {
+        const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-          return interaction.reply({ content: 'You need Manage Server permission to manage level rewards.', ephemeral: true });
+          return replyPlain({ content: 'You need Manage Server permission to manage level rewards.', ephemeral: true });
         }
 
         const level = interaction.options.getInteger('level', true);
@@ -3358,7 +3359,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
 
         if (!enabled) {
           const removed = db.deleteLevelReward(guild.id, level);
-          return interaction.reply({
+          return replyPlain({
             content: removed
               ? '✅ Removed the role reward for level **' + level + '**.'
               : 'There was no role reward set for level **' + level + '**.',
@@ -3367,25 +3368,25 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         }
 
         if (!role) {
-          return interaction.reply({ content: 'Choose a role to give. The role option is required when enabled is true.', ephemeral: true });
+          return replyPlain({ content: 'Choose a role to give. The role option is required when enabled is true.', ephemeral: true });
         }
         if (role.managed || role.id === guild.id) {
-          return interaction.reply({ content: 'That role cannot be assigned to members.', ephemeral: true });
+          return replyPlain({ content: 'That role cannot be assigned to members.', ephemeral: true });
         }
 
         const botMember = guild.members.me;
         if (!botMember || !botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-          return interaction.reply({ content: 'ZERON needs the Manage Roles permission before it can give rewards.', ephemeral: true });
+          return replyPlain({ content: 'ZERON needs the Manage Roles permission before it can give rewards.', ephemeral: true });
         }
         if (role.position >= botMember.roles.highest.position) {
-          return interaction.reply({
+          return replyPlain({
             content: 'ZERON cannot give <@&' + role.id + '>. Move ZERON\'s role above it in Server Settings → Roles.',
             ephemeral: true
           });
         }
 
         db.setLevelReward(guild.id, level, role.id);
-        return interaction.reply({
+        return replyPlain({
           content: '✅ Members who reach level **' + level + '** will receive <@&' + role.id + '>. Rewards stack, so earlier level roles are kept.',
           ephemeral: true
         });
@@ -3474,7 +3475,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         }
         // Link: the username is filled in from the member's own name when they do not type one.
         const username = String(interaction.options.getString('username') || interaction.user.username || '').trim();
-        if (!username) return interaction.reply({ content: 'Give your Roblox username, for example: action Link, username yourname.', ephemeral: true });
+        if (!username) return (interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction))({ content: 'Give your Roblox username, for example: action Link, username yourname.', ephemeral: true });
         const deferPlainReply = interaction.__v2OriginalMethods?.deferReply || interaction.deferReply.bind(interaction);
         const editPlainReply = interaction.__v2OriginalMethods?.editReply || interaction.editReply.bind(interaction);
         await deferPlainReply({ ephemeral: true });
@@ -3833,11 +3834,12 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         return editPlainReply({ content: `🧹 Done. Deleted ${deleted} messages.${note}` }).catch(() => {});
       }
       if (commandName === 'ping') {
+        const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
         // One short line: response time, gateway latency, and a status dot.
         const roundtrip = Date.now() - interaction.createdTimestamp;
         const gateway = interaction.client.ws.ping;
         const dot = roundtrip < 300 ? '🟢' : roundtrip < 800 ? '🟡' : '🔴';
-        return interaction.reply({
+        return replyPlain({
           content: `🏓 **${roundtrip} ms** · gateway **${gateway >= 0 ? gateway + ' ms' : 'n/a'}** ${dot}`
         });
       }
@@ -3997,11 +3999,12 @@ ${failed} could not receive coins (balance limit).` : ''}`;
       }
 
       if (commandName === 'pay') {
+        const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
         const recipient = interaction.options.getUser('user', true);
         const amount = interaction.options.getInteger('amount', true);
 
         if (recipient.bot) {
-          return interaction.reply({ content: 'You cannot pay a bot.', ephemeral: true });
+          return replyPlain({ content: 'You cannot pay a bot.', ephemeral: true });
         }
 
         const result = db.transferCoins(guild.id, interaction.user.id, recipient.id, amount);
@@ -4012,10 +4015,10 @@ ${failed} could not receive coins (balance limit).` : ''}`;
             funds: `Not enough coins. Your balance is 🪙 ${result.balance.toLocaleString()}.`,
             limit: 'The recipient balance has reached its limit.'
           };
-          return interaction.reply({ content: messages[result.reason] || 'Payment failed.', ephemeral: true });
+          return replyPlain({ content: messages[result.reason] || 'Payment failed.', ephemeral: true });
         }
 
-        return interaction.reply(`💸 <@${interaction.user.id}> paid **🪙 ${amount.toLocaleString()}** to <@${recipient.id}>.`);
+        return replyPlain(`💸 <@${interaction.user.id}> paid **🪙 ${amount.toLocaleString()}** to <@${recipient.id}>.`);
       }
 
       if (commandName === 'bank') {
