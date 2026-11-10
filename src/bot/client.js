@@ -3960,9 +3960,10 @@ ${failed} could not receive coins (balance limit).` : ''}`;
             'Use /ownergive user:@member amount:1000 to send a gift.', 0x46BBFF);
           return interaction.reply({ components: [card], flags: ephemeralV2 });
         }
-        if (!recipient) return interaction.reply({ components: [textCard('🎁 Pick a member', 'Choose who receives the gift.', null)], flags: ephemeralV2 });
-        if (!amount) return interaction.reply({ components: [textCard('🎁 Enter an amount', 'Choose how many coins to gift, from 1 to 10,000.', null)], flags: ephemeralV2 });
-        if (recipient.bot) return interaction.reply({ components: [textCard('🎁 Not allowed', 'You cannot gift coins to a bot.', null)], flags: ephemeralV2 });
+        const plainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        if (!recipient) return plainReply({ content: '🎁 Pick a member\nChoose who receives the gift.', ephemeral: true });
+        if (!amount) return plainReply({ content: '🎁 Enter an amount\nChoose how many coins to gift, from 1 to 10,000.', ephemeral: true });
+        if (recipient.bot) return plainReply({ content: '🎁 Not allowed\nYou cannot gift coins to a bot.', ephemeral: true });
 
         const result = db.giftFromOwnerWallet(guildForGift.id, recipient.id, amount, now);
         if (!result.ok) {
@@ -3973,7 +3974,8 @@ ${failed} could not receive coins (balance limit).` : ''}`;
             recipient: ['🎁 Already gifted', `<@${recipient.id}> already received a gift. They can receive another <t:${ts(result.readyAt)}:R>.`]
           };
           const [heading, body] = messages[result.reason] || ['🎁 Gift failed', 'Something went wrong.'];
-          return interaction.reply({ components: [textCard(heading, body, null)], flags: ephemeralV2 });
+          const plainBody = body.replace(/\*\*/g, '');
+          return plainReply({ content: `${heading}\n${plainBody}`, ephemeral: true });
         }
 
         writeLog(guildForGift, 'ownergive', recipient.id, `${amount} coins · ${reason}`, owner.id);
