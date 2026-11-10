@@ -1658,8 +1658,8 @@ function createClient(db) {
 
   async function handleAIChat(message) {
     if (!message.guild || !message.channel || message.author.bot || message.webhookId) return;
-    const channelId = db.getAiChannel(message.guild.id);
-    if (!channelId || message.channelId !== channelId) return;
+    const enabledChannels = db.getAiChannels(message.guild.id);
+    if (!enabledChannels.includes(message.channelId)) return;
 
     const botMentioned = message.mentions.users.has(client.user.id);
     const otherUserMentioned = [...message.mentions.users.values()].some(user => user.id !== client.user.id);
@@ -3640,20 +3640,33 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         if (!interaction.memberPermissions || !interaction.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
           return interaction.reply({ content: 'You need the Manage Server permission to use this.', ephemeral: true });
         }
-        if (interaction.options.getString('action') === 'off') {
-          db.clearAiChannel(guildForAi.id);
-          const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
-          return sendPlainReply({ content: '✅ AI chat is off.', ephemeral: true });
+        const action = interaction.options.getString('action');
+        const selectedChannel = interaction.options.getChannel('channel');
+        const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+
+        if (action === 'off') {
+          if (selectedChannel) {
+            const removed = db.removeAiChannel(guildForAi.id, selectedChannel.id);
+            return sendPlainReply({
+              content: removed
+                ? `✅ AI chat is off in ${selectedChannel}.`
+                : `AI chat was not enabled in ${selectedChannel}.`,
+              ephemeral: true
+            });
+          }
+          db.clearAiChannels(guildForAi.id);
+          return sendPlainReply({ content: '✅ AI chat is off in all channels.', ephemeral: true });
         }
-        const aiChannel = interaction.options.getChannel('channel') || interaction.channel;
+
+        const aiChannel = selectedChannel || interaction.channel;
         if (!aiChannel || !aiChannel.isTextBased()) {
-          const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
           return sendPlainReply({ content: 'Pick a text or announcement channel.', ephemeral: true });
         }
-        db.setAiChannel(guildForAi.id, aiChannel.id);
-        const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        const added = db.addAiChannel(guildForAi.id, aiChannel.id);
         return sendPlainReply({
-          content: `✅ AI chat is on in ${aiChannel}. I'll chat naturally with members in that channel.`,
+          content: added
+            ? `✅ AI chat is on in ${aiChannel}. I'll chat naturally with members in that channel.`
+            : `AI chat is already on in ${aiChannel}.`,
           ephemeral: true
         });
       }
