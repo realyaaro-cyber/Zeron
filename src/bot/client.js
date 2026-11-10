@@ -2742,7 +2742,8 @@ const fishWaitMessages = new Map();
         });
       }
       db.setVerificationReviewMessage(appId, message.id);
-      return interaction.reply({ content: 'Your application was sent to the staff. You will get a DM when it is reviewed.', ephemeral: true });
+      const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+      return sendPlainReply({ content: 'Your application was sent to the staff. You will get a DM when it is reviewed.', ephemeral: true });
     }
 
     if (interaction.isButton() && (interaction.customId.startsWith('nx-verify-approve:') || interaction.customId.startsWith('nx-verify-reject:'))) {
