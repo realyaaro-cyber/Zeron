@@ -3405,7 +3405,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         if (interaction.options.getBoolean('cancel')) {
           if (!db.getActiveTrivia(guild.id)) return (interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction))({ content: 'No trivia is running right now.', ephemeral: true });
           db.cancelTrivia(guild.id);
-          return interaction.reply({ content: 'Trivia cancelled.', ephemeral: true });
+          return (interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction))({ content: 'Trivia cancelled.', ephemeral: true });
         }
 
         const question = (interaction.options.getString('question') || '').trim();
