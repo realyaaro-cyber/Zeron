@@ -3820,7 +3820,8 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         }
         await writeLog(guild, 'purge', null, `${deleted} messages deleted`, interaction.user.id);
         const note = oldSkipped ? ` ${oldSkipped} messages could not be deleted.` : '';
-        return interaction.editReply({ content: `🧹 Done. Deleted ${deleted} messages.${note}` }).catch(() => {});
+        const editPlainReply = interaction.__v2OriginalMethods?.editReply || interaction.editReply.bind(interaction);
+        return editPlainReply({ content: `🧹 Done. Deleted ${deleted} messages.${note}` }).catch(() => {});
       }
       if (commandName === 'ping') {
         // One short line: response time, gateway latency, and a status dot.
