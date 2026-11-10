@@ -532,7 +532,7 @@ const LEGACY_V2_EXCLUSIONS = new Set([
 
 function isAccessRestrictionPayload(payload) {
   const content = typeof payload === 'string' ? payload : payload && typeof payload.content === 'string' ? payload.content : '';
-  return /only\s+.{1,100}\s+(?:can use|may use|is allowed to use)|only\s+.{1,100}\s+can\s+(?:run|execute|use)|you need\s+.{1,100}\s+permission|requires?\s+.{1,100}\s+permission|not authorized to use/i.test(content);
+  return /only\s+.{1,100}\s+(?:can use|may use|is allowed to use)|only\s+.{1,100}\s+can\s+(?:run|execute|use)|you need\s+.{1,100}\s+permission|requires?\s+.{1,100}\s+permission|not authorized to use|you are not in a guild/i.test(content);
 }
 
 function v2Proxy(interaction) {
