@@ -3256,12 +3256,13 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           inviteSnapshots.delete(guild.id);
         }
 
-        return interaction.reply({
+        const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        return replyPlain({
           content: !enabled
-            ? `Invite tracking **disabled**. The selected log channel is <#${channel.id}>. Existing tracked history is preserved.`
+            ? `Invite tracking disabled. The selected log channel is <#${channel.id}>. Existing tracked history is preserved.`
             : snapshotReady
-              ? `Invite tracking **enabled**. Join logs will be sent to <#${channel.id}>. Inviter attribution will show Unknown whenever it cannot be confirmed.`
-              : `Invite tracking is **enabled** and logs are configured for <#${channel.id}>, but Discord did not allow ZERON to read the current invite snapshot. New joins may show Unknown until access is fixed. Check the startup/command logs for the Discord error code.`,
+              ? `Invite tracking enabled. Join logs will be sent to <#${channel.id}>. Inviter attribution will show Unknown whenever it cannot be confirmed.`
+              : `Invite tracking is enabled and logs are configured for <#${channel.id}>, but Discord did not allow ZERON to read the current invite snapshot. New joins may show Unknown until access is fixed. Check the startup/command logs for the Discord error code.`,
           ephemeral: true
         });
       }
