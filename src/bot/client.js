@@ -1415,7 +1415,7 @@ function createClient(db) {
   // AI chat provider configuration. Secrets are read from environment variables, never hardcoded.
   const aiCooldown = new Map();
   const aiConversations = new Map();
-  const AI_CONTEXT_TURNS = 8;
+  const AI_CONTEXT_TURNS = 4;
   const AI_CONTEXT_TTL = 30 * 60 * 1000;
 
   // Build the AI access guide from live slash-command definitions plus verified runtime guards.
@@ -1534,14 +1534,19 @@ function createClient(db) {
     ].join('\n');
   }
 
-  function aiMinimalSystemPrompt() {
-    return [
+  function aiMinimalSystemPrompt(userText = '') {
+    const text = String(userText || '').toLowerCase();
+    const asksWanted = /\\b(wanted|devvgames|oasis city|rod|sir\\.b|bert|ofy|vault|atm|mission|vehicle|roblox)\\b/.test(text);
+    const asksZeron = /\\b(zeron|\\/help|\\/commands|dashboard|ticket|verification|moderation|economy|coins|guild|fishing|trivia|slots|rank|leaderboard|permission|command)\\b/.test(text);
+    const asksAccess = /\\b(permission|permissions|who can|access|owner.only|restricted|admin|moderator|role)\\b/.test(text);
+    const parts = [
       'You are ZERON, a friendly Discord assistant. Reply naturally and concisely in the user’s language; support English, Hinglish, Malay, Indonesian, Filipino/Tagalog, and Bangla. Default Bangla to Banglish unless Bengali script is requested.',
-      'Never invent ZERON commands, features, prices, permissions, or server facts. If unsure, say so. Explain actions but never claim you performed Discord actions. Never ping users or use mass mentions.',
-      'Configured command access rules: ' + aiCommandAccessGuide().replace(/\\n/g, ' '),
-      WANTED_GAME_KNOWLEDGE,
-      'Every slash command is server-only. Except /manage-cmnds, commands can be disabled server-wide or restricted for an individual member; /manage-cmnds is server-owner-only and exempt from those lists. Modules can also be off. This guide does not show the current member’s live permissions, restrictions, module settings, role hierarchy, bot permissions, or channel access. Explain known rules but never guess current access, and distinguish the caller’s permissions from permissions ZERON needs.'
-    ].join(' ');
+      'Never invent commands, features, prices, permissions, or server facts. If unsure, say so. Explain actions but never claim you performed Discord actions. Never ping users or use mass mentions.'
+    ];
+    if (asksZeron) parts.push('ZERON feature guide: ' + ZERON_FEATURE_KNOWLEDGE);
+    if (asksZeron && asksAccess) parts.push('Configured command access rules: ' + aiCommandAccessGuide() + ' Every slash command is server-only. Except /manage-cmnds, commands can be disabled server-wide or restricted for an individual member; modules can also be off. Current member permissions and server settings are not visible to you, so never guess them.');
+    if (asksWanted) parts.push(WANTED_GAME_KNOWLEDGE);
+    return parts.join('\\n');
   }
 
   // Removes the oldest complete conversational turn while preserving the system prompt
@@ -1600,7 +1605,7 @@ function createClient(db) {
     let lastError = null;
     for (const model of models) {
       let requestMessages = messages;
-      let maxTokens = 900;
+      let maxTokens = 400;
       const canCompactSystemPrompt = messages[0]?.role === 'system' && String(messages[0].content || '').startsWith('You are ZERON,');
       const compactSystemPrompt = canCompactSystemPrompt ? aiSystemPrompt(true) : null;
       const minimalSystemPrompt = canCompactSystemPrompt ? aiMinimalSystemPrompt() : null;
@@ -1706,10 +1711,16 @@ function createClient(db) {
     const conversation = history && now - history.updatedAt <= AI_CONTEXT_TTL ? history : { messages: [], updatedAt: now, activeUntil: now + 5 * 60 * 1000 };
     conversation.activeUntil = now + 5 * 60 * 1000;
     aiConversations.set(conversationKey, conversation);
+    // Keep the system prompt task-specific: the full Wanted guide and ZERON feature
+    // reference are added only when the current question actually needs them.
+    const recentHistory = conversation.messages.slice(-AI_CONTEXT_TURNS * 2).map(item => ({
+      role: item.role,
+      content: String(item.content || '').slice(-700)
+    }));
     const messages = [
-      { role: 'system', content: aiSystemPrompt() },
-      ...conversation.messages.slice(-AI_CONTEXT_TURNS),
-      { role: 'user', content: userText }
+      { role: 'system', content: aiMinimalSystemPrompt(userText) },
+      ...recentHistory,
+      { role: 'user', content: userText.slice(0, 1000) }
     ];
     await message.channel.sendTyping().catch(() => {});
     try {
