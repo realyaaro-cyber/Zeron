@@ -545,7 +545,7 @@ function v2Proxy(interaction) {
   interaction.__v2Proxied = true;
   // Keep original methods available for deliberately legacy-only responses such as the fish cooldown notice.
   interaction.__v2OriginalMethods = {};
-  for (const method of ['reply', 'editReply', 'deferReply']) {
+  for (const method of ['reply', 'update', 'editReply', 'deferReply']) {
     if (typeof interaction[method] === 'function') interaction.__v2OriginalMethods[method] = interaction[method].bind(interaction);
   }
   // Only wrap the methods this kind of interaction actually has (modal submits have no update).
@@ -3168,12 +3168,9 @@ ${failed} could not receive coins (balance limit).` : ''}`;
       const title = memberId
         ? (wantBlocked ? '⛔ Restricted commands' : '✅ Allowed commands')
         : (wantBlocked ? '⛔ Disabled commands' : '✅ Enabled commands');
-      const embed = new EmbedBuilder()
-        .setColor(db.accentColor(guild.id))
-        .setTitle(title)
-        .setDescription(memberId ? `For <@${memberId}>\n\n${body}` : body)
-        .setFooter({ text: `${list.length} command(s)` });
-      return interaction.update({ embeds: [embed], components: [] });
+      const content = `${title}\n${memberId ? `For <@${memberId}>\n\n` : ''}${body}\n\n${list.length} command(s)`;
+      const updatePlain = interaction.__v2OriginalMethods?.update || interaction.update.bind(interaction);
+      return updatePlain({ content, components: [] });
     }
 
     if (!interaction.isChatInputCommand()) return;
@@ -3432,7 +3429,10 @@ ${failed} could not receive coins (balance limit).` : ''}`;
 
       if (commandName === 'manage-cmnds') {
         const guild = interaction.guild;
-        if (interaction.user.id !== guild.ownerId) return interaction.reply({ content: 'Only the server owner can use this command.', ephemeral: true });
+        const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        const deferPlain = interaction.__v2OriginalMethods?.deferReply || interaction.deferReply.bind(interaction);
+        const editPlain = interaction.__v2OriginalMethods?.editReply || interaction.editReply.bind(interaction);
+        if (interaction.user.id !== guild.ownerId) return replyPlain({ content: 'Only the server owner can use this command.', ephemeral: true });
         const target = interaction.options.getUser('user');
         if (interaction.options.getString('action') === 'show') {
           const suffix = target ? target.id : 'none';
@@ -3440,17 +3440,17 @@ ${failed} could not receive coins (balance limit).` : ''}`;
             new ButtonBuilder().setCustomId(`zeron_enable_list:${target ? 'allowed' : 'enabled'}:${suffix}`).setLabel(target ? 'Allowed for member' : 'Enabled list').setEmoji('✅').setStyle(ButtonStyle.Success),
             new ButtonBuilder().setCustomId(`zeron_enable_list:${target ? 'restricted' : 'disabled'}:${suffix}`).setLabel(target ? 'Restricted for member' : 'Disabled list').setEmoji('⛔').setStyle(ButtonStyle.Danger)
           );
-          return interaction.reply({ content: target ? `Which list for ${target.username}?` : 'Which list do you want to see?', components: [row], ephemeral: true });
+          return replyPlain({ content: target ? `Which list for ${target.username}?` : 'Which list do you want to see?', components: [row], ephemeral: true });
         }
         const name = String(interaction.options.getString('command') || '').trim().toLowerCase();
-        if (!name) return interaction.reply({ content: 'Pick a command, then True or False.', ephemeral: true });
+        if (!name) return replyPlain({ content: 'Pick a command, then True or False.', ephemeral: true });
         if (name === 'manage-cmnds' || !commands.some(c => c.name === name)) {
-          return interaction.reply({ content: 'That is not a command. Pick one from the list.', ephemeral: true });
+          return replyPlain({ content: 'That is not a command. Pick one from the list.', ephemeral: true });
         }
         const enable = interaction.options.getString('action') === 'true';
-        await interaction.deferReply({ ephemeral: true });
+        await deferPlain({ ephemeral: true });
         if (target) {
-          if (target.bot || target.id === guild.ownerId) return interaction.editReply('You cannot restrict a bot or the server owner.');
+          if (target.bot || target.id === guild.ownerId) return editPlain('You cannot restrict a bot or the server owner.');
           db.setUserRestriction(guild.id, target.id, name, !enable);
           await applyCommandVisibility(guild, [name]).catch(() => {});
           return interaction.editReply(enable
