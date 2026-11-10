@@ -144,6 +144,37 @@ function helpComponents() {
   return rows;
 }
 
+const ACHIEVEMENTS = [
+  { id: 'coin_earner_1k', emoji: '🪙', name: 'Pocket Full', description: 'Earn 1,000 coins', metric: 'totalEarned', target: 1000 },
+  { id: 'coin_earner_10k', emoji: '💰', name: 'Coin Collector', description: 'Earn 10,000 coins', metric: 'totalEarned', target: 10000 },
+  { id: 'chat_xp_1k', emoji: '💬', name: 'Active Voice', description: 'Earn 1,000 server XP', metric: 'xp', target: 1000 },
+  { id: 'chat_xp_10k', emoji: '⭐', name: 'Community Star', description: 'Earn 10,000 server XP', metric: 'xp', target: 10000 },
+  { id: 'fish_caught_10', emoji: '🎣', name: 'First Catch', description: 'Catch 10 fish', metric: 'fishCaught', target: 10 },
+  { id: 'fish_caught_100', emoji: '🐟', name: 'Master Angler', description: 'Catch 100 fish', metric: 'fishCaught', target: 100 },
+  { id: 'shark_caught_1', emoji: '🦈', name: 'Shark Hunter', description: 'Catch a shark', metric: 'sharks', target: 1 },
+  { id: 'legendary_caught_1', emoji: '🌟', name: 'Legendary Discovery', description: 'Catch a legendary fish', metric: 'legendaryFish', target: 1 },
+  { id: 'fishing_quests_10', emoji: '📜', name: 'Quest Veteran', description: 'Complete 10 fishing quests', metric: 'fishingQuests', target: 10 },
+  { id: 'collectibles_3', emoji: '💎', name: 'Curator', description: 'Own 3 different collectibles', metric: 'uniqueCollectibles', target: 3 }
+];
+
+function syncAchievements(db, guildId, userId) {
+  const stats = db.getAchievementStats(guildId, userId);
+  for (const achievement of ACHIEVEMENTS) {
+    if (stats[achievement.metric] >= achievement.target) {
+      db.unlockAchievement(guildId, userId, achievement.id);
+    }
+  }
+  const unlocked = new Set(db.getAchievements(guildId, userId).map(row => row.achievement_id));
+  return {
+    unlocked: ACHIEVEMENTS.filter(item => unlocked.has(item.id)),
+    locked: ACHIEVEMENTS.filter(item => !unlocked.has(item.id)).map(item => ({
+      ...item,
+      progress: Math.min(stats[item.metric], item.target)
+    })),
+    total: ACHIEVEMENTS.length
+  };
+}
+
 // Safely reads the JSON list of XP channel IDs stored in guild_settings.
 function parseChannelIds(raw) {
   try {
@@ -2433,6 +2464,7 @@ const fishWaitMessages = new Map();
         amount,
         now
       );
+      syncAchievements(db, message.guild.id, message.author.id);
 
       // Guilds gain progression XP when a member earns normal server XP.
       db.addPlayerGuildXp(message.guild.id, message.author.id, 1);
@@ -3134,6 +3166,7 @@ const fishWaitMessages = new Map();
       db.catchFish(guildId, ownerId, fish);
       db.recordCatch(guildId, ownerId, fish.name);
       db.addFishingXp(guildId, ownerId, fishingXpFromValue(fish.value));
+      syncAchievements(db, guildId, ownerId);
       let bonus = null;
       if (usedBait && Math.random() < FISH_BAIT[usedBait].bonusChance) {
         bonus = chooseFish(gear.rod, usedBait);
@@ -4224,6 +4257,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           const id=interaction.options.getString('item'); if(!id) return sendPlainReply({content:'Choose an item to buy.',ephemeral:true});
           const item=items.find(x=>x.id===id); const result=db.buyCollectible(guild.id,interaction.user.id,item.id,item.price);
           if(!result.ok) return sendPlainReply({content:`Not enough coins. Your wallet has 🪙 ${result.balance.toLocaleString()}.`,ephemeral:true});
+          syncAchievements(db, guild.id, interaction.user.id);
           return sendPlainReply({content:`✨ Purchased ${item.emoji} **${item.name}** (${item.rarity}) for 🪙 ${item.price.toLocaleString()}!`,ephemeral:true});
         }
         if(action==='mine') {
@@ -4252,6 +4286,13 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         const balance = db.getBalance(guild.id, user.id);
         const fishing = db.getFishingProfile(guild.id, user.id);
         const fishInBag = db.getFishingInventory(guild.id, user.id).length;
+        const achievementState = syncAchievements(db, guild.id, user.id);
+        const unlockedBadges = achievementState.unlocked.length
+          ? achievementState.unlocked.map(item => item.emoji + ' **' + item.name + '**').join(' · ')
+          : 'No badges unlocked yet.';
+        const nextBadges = achievementState.locked.slice(0, 3).map(item =>
+          item.emoji + ' **' + item.name + '** — ' + item.progress.toLocaleString() + '/' + item.target.toLocaleString()
+        );
         const size = 10;
         const filled = Math.round((fishing.xpIntoLevel / fishing.xpForNext) * size);
         const bar = '█'.repeat(filled) + '░'.repeat(size - filled);
@@ -4270,7 +4311,9 @@ ${failed} could not receive coins (balance limit).` : ''}`;
               'Fish in inventory: **' + fishInBag.toLocaleString() + '**\n' +
               'Sharks: **' + fishing.sharks.toLocaleString() + '**\n' +
               'Legendary fish: **' + fishing.legendary.toLocaleString() + '**\n' +
-              'Quests completed: **' + fishing.questsDone.toLocaleString() + '**'
+              'Quests completed: **' + fishing.questsDone.toLocaleString() + '**\n\n' +
+              '**🏅 Achievements (' + achievementState.unlocked.length + '/' + achievementState.total + ')**\n' +
+              unlockedBadges + (nextBadges.length ? '\n\n**Next badges**\n' + nextBadges.join('\n') : '')
             )],
           ephemeral: true
         });
