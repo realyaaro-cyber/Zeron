@@ -3467,10 +3467,48 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
           return interaction.reply({ content: 'You need Manage Server permission to configure Starboard.', ephemeral: true });
         }
-        const source = interaction.options.getChannel('source_channel', true);
-        const destination = interaction.options.getChannel('destination_channel', true);
-        const threshold = interaction.options.getInteger('threshold', true);
+        const existing = db.getStarboardSettings(interaction.guild.id);
         const enabled = interaction.options.getBoolean('enabled', true);
+
+        // Disabling only changes the status; saved channels and threshold are retained.
+        if (!enabled) {
+          if (!existing) {
+            return interaction.reply({
+              content: 'Starboard is not configured yet. No source or destination channel has been selected. Set up the channels and star threshold first, then you can disable it.',
+              ephemeral: true
+            });
+          }
+          const saved = db.saveStarboardSettings(interaction.guild.id, {
+            sourceChannelId: existing.source_channel_id,
+            destinationChannelId: existing.destination_channel_id,
+            threshold: existing.threshold,
+            enabled: false
+          });
+          return interaction.reply({
+            content: [
+              'Starboard has been disabled.',
+              `Saved source channel: <#${saved.source_channel_id}>`,
+              `Saved destination channel: <#${saved.destination_channel_id}>`,
+              `Saved star threshold: ${saved.threshold}`,
+              'Existing starboard posts will remain in the destination channel.'
+            ].join('\\n'),
+            ephemeral: true
+          });
+        }
+
+        const sourceOption = interaction.options.getChannel('source_channel');
+        const destinationOption = interaction.options.getChannel('destination_channel');
+        const thresholdOption = interaction.options.getInteger('threshold');
+        const source = sourceOption || (existing ? await interaction.guild.channels.fetch(existing.source_channel_id).catch(() => null) : null);
+        const destination = destinationOption || (existing ? await interaction.guild.channels.fetch(existing.destination_channel_id).catch(() => null) : null);
+        const threshold = thresholdOption ?? existing?.threshold;
+
+        if (!source || !destination || !threshold) {
+          return interaction.reply({
+            content: 'Starboard has no channel setup yet. To enable it, select a source channel, a destination channel, and a star threshold.',
+            ephemeral: true
+          });
+        }
         if (!source.isTextBased() || source.guildId !== interaction.guild.id || typeof source.messages?.fetch !== 'function') {
           return interaction.reply({ content: 'Choose a text channel in this server as the source channel.', ephemeral: true });
         }
@@ -3505,7 +3543,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           sourceChannelId: source.id,
           destinationChannelId: destination.id,
           threshold,
-          enabled
+          enabled: true
         });
         return interaction.reply({
           content: [
@@ -3513,9 +3551,9 @@ ${failed} could not receive coins (balance limit).` : ''}`;
             `Source channel: <#${saved.source_channel_id}>`,
             `Destination channel: <#${saved.destination_channel_id}>`,
             `Star threshold: ${saved.threshold} stars`,
-            `Enabled: ${saved.enabled ? 'Yes' : 'No'}`,
-            enabled ? 'ZERON will add a star reaction to new messages in the source channel and repost eligible messages when they reach the threshold.' : 'Starboard is disabled. Existing posts remain in the destination channel.'
-          ].join('\n'),
+            'Enabled: Yes',
+            'ZERON will add a star reaction to new messages in the source channel and repost eligible messages when they reach the threshold.'
+          ].join('\\n'),
           ephemeral: true
         });
       }
