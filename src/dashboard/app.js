@@ -699,7 +699,7 @@ function createDashboard({ db, client }) {
 
       let sent;
       try {
-        sent = await channel.send(toV2Payload({ content, allowedMentions: { parse: [] } }));
+        sent = await channel.send({ content, allowedMentions: { parse: [] } });
       } catch (e) {
         return res.status(400).json({ error: 'ZERON could not post in that channel. Check its Send Messages permission.' });
       }
