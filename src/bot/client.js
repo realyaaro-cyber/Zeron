@@ -1563,101 +1563,150 @@ function createClient(db) {
 
   // Use a configurable OpenAI-compatible endpoint. Custom providers use only their configured model;
   // OpenRouter retains its existing model fallback chain for backward compatibility.
-  async function askAIProvider(messages) {
-    const key = process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY;
-    if (!key) return null;
+  // Read one OpenAI-compatible provider from environment variables.
+  function readAiProviderConfig(prefix, isPrimary = false) {
+    const get = name => (process.env[prefix + name] || '').trim();
+    const key = get('API_KEY') || (isPrimary ? (process.env.OPENROUTER_API_KEY || '').trim() : '');
+    const model = get('MODEL') || (isPrimary ? (process.env.OPENROUTER_MODEL || 'zai-org/GLM-5.3-Flash').trim() : '');
+    const rawBaseUrl = get('BASE_URL') || (isPrimary ? 'https://proxy.gonkabroker.com/v1' : '');
+    if (!key || !model || !rawBaseUrl) return null;
 
-    // Any OpenAI-compatible provider can be selected from the host environment.
-    // AI_PROVIDER is a display name; AI_BASE_URL controls the actual API destination.
-    const configuredProvider = (process.env.AI_PROVIDER || '').trim();
-    const configuredBaseUrl = (process.env.AI_BASE_URL || 'https://proxy.gonkabroker.com/v1').trim();
-    const baseUrl = configuredBaseUrl.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '');
+    const baseUrl = rawBaseUrl.replace(/\\/+$/, '').replace(/\\/chat\\/completions$/i, '');
     let parsedBaseUrl;
     try {
       parsedBaseUrl = new URL(baseUrl);
     } catch {
-      throw new Error('AI_BASE_URL must be a valid OpenAI-compatible HTTP(S) API base URL.');
+      console.warn(`Skipping ${prefix || 'primary AI'}: BASE_URL is not a valid URL.`);
+      return null;
     }
     if (!['http:', 'https:'].includes(parsedBaseUrl.protocol)) {
-      throw new Error('AI_BASE_URL must use HTTP or HTTPS.');
+      console.warn(`Skipping ${prefix || 'primary AI'}: BASE_URL must use HTTP or HTTPS.`);
+      return null;
     }
-
     const isOpenRouter = parsedBaseUrl.origin === 'https://openrouter.ai' &&
-      parsedBaseUrl.pathname.replace(/\/+$/, '') === '/api/v1';
-    const configuredModel = (process.env.AI_MODEL || process.env.OPENROUTER_MODEL || '').trim();
-    const models = isOpenRouter
-      ? [...new Set([
-          configuredModel,
-          'google/gemini-flash-latest',
-          'deepseek/deepseek-flash-latest',
-          'openai/gpt-5.2-chat',
-          'openai/gpt-5-chat',
-          'openai/gpt-4o'
-        ].filter(Boolean))]
-      : [configuredModel || 'zai-org/GLM-5.3-Flash'];
+      parsedBaseUrl.pathname.replace(/\\/+$/, '') === '/api/v1';
+    return {
+      provider: get('PROVIDER') || (isOpenRouter ? 'OpenRouter' : (isPrimary ? 'Primary AI provider' : 'Backup AI provider')),
+      key,
+      model,
+      baseUrl,
+      isOpenRouter
+    };
+  }
 
-    const providerName = configuredProvider || (isOpenRouter ? 'OpenRouter' : 'Custom AI provider');
+  function getAiProviderConfigs() {
+    const providers = [];
+    const primary = readAiProviderConfig('AI_', true);
+    if (primary) providers.push(primary);
+    // Up to ten independently configured backups; gaps are allowed.
+    for (let index = 1; index <= 10; index++) {
+      const backup = readAiProviderConfig(`AI_BACKUP_${index}_`);
+      if (backup) providers.push(backup);
+    }
+    return providers;
+  }
+
+  // Try each configured provider in order. Rate limits and temporary upstream failures
+  // move to the next provider; authentication/configuration errors are surfaced directly.
+  async function askAIProvider(messages) {
+    const providers = getAiProviderConfigs();
+    if (!providers.length) return null;
+
     let lastError = null;
-    for (const model of models) {
-      let requestMessages = messages;
-      let maxTokens = 400;
-      const canCompactSystemPrompt = messages[0]?.role === 'system' && String(messages[0].content || '').startsWith('You are ZERON,');
-      const compactSystemPrompt = canCompactSystemPrompt ? aiSystemPrompt(true) : null;
-      const minimalSystemPrompt = canCompactSystemPrompt ? aiMinimalSystemPrompt() : null;
-      for (let attempt = 0; attempt < 12; attempt++) {
-        const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` };
-        if (isOpenRouter) {
-          headers['HTTP-Referer'] = 'https://zeronbot.freesrv.com';
-          headers['X-Title'] = 'ZERON';
-        }
-        const res = await fetch(`${baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ model, messages: requestMessages, max_tokens: maxTokens }),
-          signal: AbortSignal.timeout(60000)
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const choice = data.choices && data.choices[0];
-          return choice && choice.message
-            ? { content: String(choice.message.content || '').trim(), finishReason: choice.finish_reason || null }
-            : { content: null, finishReason: null };
-        }
-        const detail = await res.text().catch(() => '');
-        if (res.status === 402 && isOpenRouter) {
-          const affordableMatch = detail.match(/can only afford\s+(\d+)/i);
-          const affordableTokens = affordableMatch ? Number(affordableMatch[1]) : 0;
-          if (affordableTokens >= 64 && affordableTokens < maxTokens) {
-            maxTokens = affordableTokens;
-            console.warn(`OpenRouter can only afford ${affordableTokens} response tokens for ${model}; retrying with max_tokens=${maxTokens}.`);
-            continue;
+    for (const provider of providers) {
+      const models = provider.isOpenRouter
+        ? [...new Set([
+            provider.model,
+            'google/gemini-flash-latest',
+            'deepseek/deepseek-flash-latest',
+            'openai/gpt-5.2-chat',
+            'openai/gpt-5-chat',
+            'openai/gpt-4o'
+          ].filter(Boolean))]
+        : [provider.model];
+
+      for (const model of models) {
+        let requestMessages = messages;
+        let maxTokens = 400;
+        const canCompactSystemPrompt = messages[0]?.role === 'system' && String(messages[0].content || '').startsWith('You are ZERON,');
+        const compactSystemPrompt = canCompactSystemPrompt ? aiSystemPrompt(true) : null;
+        const minimalSystemPrompt = canCompactSystemPrompt ? aiMinimalSystemPrompt() : null;
+
+        for (let attempt = 0; attempt < 8; attempt++) {
+          let res;
+          try {
+            const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${provider.key}` };
+            if (provider.isOpenRouter) {
+              headers['HTTP-Referer'] = 'https://zeronbot.freesrv.com';
+              headers['X-Title'] = 'ZERON';
+            }
+            res = await fetch(`${provider.baseUrl}/chat/completions`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ model, messages: requestMessages, max_tokens: maxTokens }),
+              signal: AbortSignal.timeout(60000)
+            });
+          } catch (error) {
+            lastError = new Error(`${provider.provider} network error for ${model}: ${error.message}`);
+            console.warn(`${lastError.message} Trying the next configured AI provider.`);
+            break;
           }
+
+          if (res.ok) {
+            const data = await res.json();
+            const choice = data.choices && data.choices[0];
+            console.info(`ZERON AI response served by ${provider.provider} / ${model}.`);
+            return choice && choice.message
+              ? { content: String(choice.message.content || '').trim(), finishReason: choice.finish_reason || null }
+              : { content: null, finishReason: null };
+          }
+
+          const detail = await res.text().catch(() => '');
+          if (res.status === 402 && provider.isOpenRouter) {
+            const affordableMatch = detail.match(/can only afford\\s+(\\d+)/i);
+            const affordableTokens = affordableMatch ? Number(affordableMatch[1]) : 0;
+            if (affordableTokens >= 64 && affordableTokens < maxTokens) {
+              maxTokens = affordableTokens;
+              console.warn(`OpenRouter can only afford ${affordableTokens} response tokens for ${model}; retrying with max_tokens=${maxTokens}.`);
+              continue;
+            }
+          }
+          if (res.status === 402 && /prompt tokens? limit exceeded/i.test(detail)) {
+            const shorterMessages = trimOldestAiContextTurn(requestMessages);
+            if (shorterMessages) {
+              requestMessages = shorterMessages;
+              console.warn(`${provider.provider} prompt exceeded the model limit for ${model}; retrying with one older conversation turn removed.`);
+              continue;
+            }
+            if (compactSystemPrompt && requestMessages[0]?.role === 'system' &&
+                requestMessages[0].content !== compactSystemPrompt) {
+              requestMessages = [{ ...requestMessages[0], content: compactSystemPrompt }, ...requestMessages.slice(1)];
+              console.warn(`${provider.provider} prompt still exceeds the model limit for ${model}; retrying with compact ZERON instructions.`);
+              continue;
+            }
+            if (minimalSystemPrompt && requestMessages[0]?.role === 'system' &&
+                requestMessages[0].content !== minimalSystemPrompt) {
+              requestMessages = [{ ...requestMessages[0], content: minimalSystemPrompt }, ...requestMessages.slice(1)];
+              console.warn(`${provider.provider} prompt still exceeds the model limit for ${model}; retrying with minimal ZERON instructions.`);
+              continue;
+            }
+          }
+
+          lastError = new Error(`${provider.provider} returned ${res.status} for ${model}: ${detail.slice(0, 200)}`);
+          if (res.status === 429) {
+            const retryAfter = res.headers.get('retry-after');
+            console.warn(`${provider.provider} rate limit reached for ${model}${retryAfter ? ` (retry after ${retryAfter}s)` : ''}; trying the next configured AI provider.`);
+            break;
+          }
+          if (res.status === 404 || res.status === 402 || res.status >= 500) {
+            console.warn(`${lastError.message} Trying the next configured AI provider.`);
+            break;
+          }
+          throw lastError;
         }
-        if (res.status === 402 && /prompt tokens? limit exceeded/i.test(detail)) {
-          const shorterMessages = trimOldestAiContextTurn(requestMessages);
-          if (shorterMessages) {
-            requestMessages = shorterMessages;
-            console.warn(`${providerName} prompt exceeded the model limit for ${model}; retrying with one older conversation turn removed.`);
-            continue;
-          }
-          if (compactSystemPrompt && requestMessages[0]?.role === 'system' &&
-              requestMessages[0].content !== compactSystemPrompt) {
-            requestMessages = [{ ...requestMessages[0], content: compactSystemPrompt }, ...requestMessages.slice(1)];
-            console.warn(`${providerName} prompt still exceeds the model limit for ${model}; retrying with compact ZERON instructions.`);
-            continue;
-          }
-          if (minimalSystemPrompt && requestMessages[0]?.role === 'system' &&
-              requestMessages[0].content !== minimalSystemPrompt) {
-            requestMessages = [{ ...requestMessages[0], content: minimalSystemPrompt }, ...requestMessages.slice(1)];
-            console.warn(`${providerName} prompt still exceeds the model limit for ${model}; retrying with minimal ZERON instructions.`);
-            continue;
-          }
-        }
-        lastError = new Error(`${providerName} returned ${res.status} for ${model}: ${detail.slice(0, 200)}`);
-        if (res.status !== 404 && res.status !== 429 && res.status < 500) break;
       }
     }
-    throw lastError || new Error('No AI model available');
+    throw lastError || new Error('No configured AI provider is currently available');
   }
 
   async function handleAIChat(message) {
@@ -1699,7 +1748,7 @@ function createClient(db) {
     const last = aiCooldown.get(conversationKey) || 0;
     if (now - last < 3000) return;
     aiCooldown.set(conversationKey, now);
-    if (!(process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY)) {
+    if (!getAiProviderConfigs().length) {
       return message.reply({ content: 'The AI assistant is not configured yet. The bot owner needs to add AI_API_KEY.', allowedMentions: { repliedUser: false, parse: [] } }).catch(() => {});
     }
 
