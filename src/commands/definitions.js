@@ -16,12 +16,6 @@ const commands = [
       .addChannelOption(o => o.setName('destination_channel').setDescription('Destination channel (required when setting up for the first time)').setRequired(false))
       .addIntegerOption(o => o.setName('threshold').setDescription('Unique member ⭐ reactions needed (required for first-time setup)').setMinValue(1).setMaxValue(100000).setRequired(false))),
 
-  new SlashCommandBuilder().setName('roleemoji')
-    .setDescription('Add a Unicode emoji at the start of a role name.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .addRoleOption(o => o.setName('role').setDescription('Role to update').setRequired(true))
-    .addStringOption(o => o.setName('emoji').setDescription('Emoji to place before the role name, e.g. 💎').setMaxLength(32).setRequired(true)),
-
   new SlashCommandBuilder().setName('track-invite')
     .setDescription('Configure invite join tracking.')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
