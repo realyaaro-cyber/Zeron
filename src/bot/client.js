@@ -1417,8 +1417,47 @@ function createClient(db) {
   const AI_CONTEXT_TURNS = 8;
   const AI_CONTEXT_TTL = 30 * 60 * 1000;
 
+  // Keep AI answers aligned with Discord command permissions and runtime owner/developer guards.
+  function aiCommandAccessGuide() {
+    const specialAccess = {
+      devgive: 'ZERON developer only',
+      ownergive: 'server owner only',
+      jail: 'server owner only',
+      unjail: 'server owner only',
+      'manage-cmnds': 'server owner only'
+    };
+    const permissionLabels = [
+      [PermissionFlagsBits.Administrator, 'Administrator'],
+      [PermissionFlagsBits.ManageGuild, 'Manage Server'],
+      [PermissionFlagsBits.KickMembers, 'Kick Members'],
+      [PermissionFlagsBits.BanMembers, 'Ban Members'],
+      [PermissionFlagsBits.ModerateMembers, 'Moderate Members (Timeout)'],
+      [PermissionFlagsBits.ManageMessages, 'Manage Messages']
+    ];
+    return commands.map(command => {
+      const json = command.toJSON();
+      let access = specialAccess[json.name];
+      if (!access) {
+        const raw = json.default_member_permissions;
+        if (raw === '0') {
+          access = 'Administrator permission is required by the Discord command visibility setting';
+        } else if (raw !== undefined && raw !== null) {
+          const required = BigInt(raw);
+          const labels = permissionLabels
+            .filter(([flag]) => (required & BigInt(flag)) === BigInt(flag))
+            .map(([, label]) => label);
+          access = labels.length ? 'requires ' + labels.join(' and ') : 'has a configured Discord permission requirement';
+        } else {
+          access = 'no default Discord permission requirement';
+        }
+      }
+      return '/' + json.name + ': ' + access + '.';
+    }).join('\\n');
+  }
+
   function aiSystemPrompt(compact = false) {
     const list = commands.map(c => `/${c.name}: ${c.toJSON().description}`).join('\n');
+    const access = aiCommandAccessGuide();
     if (compact) {
       return [
         'You are ZERON, a friendly and natural Discord assistant. Be conversational; do not force every chat toward commands.',
@@ -1428,6 +1467,10 @@ function createClient(db) {
         'Never ping users or use mass mentions. Keep casual replies concise; expand when asked.',
         'Available commands:',
         list,
+        '',
+        'Command access rules (configured requirements, not a live check of the current user):',
+        access,
+        'Server owners can disable commands globally or restrict individual members. XP, economy, fishing, and games commands may also be unavailable when their module is off. A command with no default Discord permission requirement can still have server-specific restrictions or runtime checks. Never claim a user can run a command unless the relevant rules and current server settings are known.',
         '',
         'ZERON feature guide: Dashboard/admin configuration covers channels, welcome, AutoMod, verification, auto-role, reaction roles, tickets, custom commands, embeds, scheduled announcements, leveling, and invite tracking. Moderation commands include kick, ban, unban, timeout, untimeout, and purge; jail/unjail are owner-only. Community features include rank, leaderboard, birthday, AFK, giveaways, and tickets. Economy includes pay, bank (2% base interest per 24h), inventory, transactions, profile, collectibles, and restricted devgive/ownergive. Collectibles listed in the project: Common Crystal 500, Rare Phoenix 2,500, Epic Dragon 10,000, Legendary Crown 50,000 coins. Fishing has rods, bait, catches, quests, XP/levels, and selling. Games include slots and trivia. /guild opens guild management; creation costs 500 coins and guild wars are supported. Utilities include Roblox linking, vault alerts, ping, serverinfo, and userinfo.',
         'Some features may be disabled or configured differently per server. For menu-based features, direct members to the relevant command/menu. Never promise an effect beyond what the live command displays.'
@@ -1447,6 +1490,10 @@ function createClient(db) {
       'Available commands:',
       list,
       '',
+      'Command access rules (configured requirements, not a live check of the current user):',
+      access,
+      'Server owners can disable commands globally or restrict individual members. XP, economy, fishing, and games commands may also be unavailable when their module is off. A command with no default Discord permission requirement can still have server-specific restrictions or runtime checks. Never claim a user can run a command unless the relevant rules and current server settings are known.',
+      '',
       ZERON_FEATURE_KNOWLEDGE
     ].join('\n');
   }
@@ -1454,7 +1501,9 @@ function createClient(db) {
   function aiMinimalSystemPrompt() {
     return [
       'You are ZERON, a friendly Discord assistant. Reply naturally and concisely in the user’s language; support English, Hinglish, Malay, Indonesian, Filipino/Tagalog, and Bangla. Default Bangla to Banglish unless Bengali script is requested.',
-      'Never invent ZERON commands, features, prices, permissions, or server facts. If unsure, say so. Explain actions but never claim you performed Discord actions. Never ping users or use mass mentions.'
+      'Never invent ZERON commands, features, prices, permissions, or server facts. If unsure, say so. Explain actions but never claim you performed Discord actions. Never ping users or use mass mentions.',
+      'Configured command access rules: ' + aiCommandAccessGuide().replace(/\\n/g, ' '),
+      'These rules do not reveal the current user’s live access. Server owners can disable commands or restrict individual members; modules can also be off. No default Discord permission requirement does not guarantee access. Never guess.'
     ].join(' ');
   }
 
