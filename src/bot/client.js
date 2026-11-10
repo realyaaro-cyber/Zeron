@@ -1482,11 +1482,11 @@ function createClient(db) {
     if (!key) return null;
 
     const customBaseUrl = process.env.AI_BASE_URL;
-    const baseUrl = (customBaseUrl || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
-    const customProvider = Boolean(customBaseUrl);
+    const baseUrl = (customBaseUrl || 'https://proxy.gonkabroker.com/v1').replace(/\/+$/, '');
+    const customProvider = baseUrl !== 'https://openrouter.ai/api/v1';
     const configuredModel = process.env.AI_MODEL || process.env.OPENROUTER_MODEL;
     const models = customProvider
-      ? [configuredModel || 'MiniMaxAI/MiniMax-M2.7']
+      ? [configuredModel || 'zai-org/GLM-5.3-Flash']
       : [...new Set([
           configuredModel,
           'google/gemini-flash-latest',
