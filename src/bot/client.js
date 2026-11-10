@@ -68,7 +68,7 @@ function helpMainCommands() {
 }
 
 function helpUsage(cmd) {
-  if (cmd.name === 'roleemoji') return '/roleemoji <role> <name> <image>';
+  if (cmd.name === 'roleemoji') return '/roleemoji <role> <emoji>';
   const parts = (cmd.options || []).map(o => (o.required ? '<' + o.name + '>' : '[' + o.name + ']'));
   return ['/' + cmd.name, ...parts].join(' ');
 }
@@ -3467,65 +3467,38 @@ ${failed} could not receive coins (balance limit).` : ''}`;
       if (!interaction.guild || !interaction.guildId) return interaction.reply({ content: 'This command only works in a server.', ephemeral: true });
       if (commandName === 'roleemoji') {
         const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
-        const deferPlain = interaction.__v2OriginalMethods?.deferReply || interaction.deferReply.bind(interaction);
-        const editPlain = interaction.__v2OriginalMethods?.editReply || interaction.editReply.bind(interaction);
         const guild = interaction.guild;
 
         if (interaction.user.id !== guild.ownerId) {
           return replyPlain({ content: 'Only the server owner can use this command.', ephemeral: true });
         }
 
-        if (!guild.features?.includes('ROLE_ICONS')) {
-          return replyPlain({ content: 'This server does not have custom role icons enabled. Discord requires the server to reach Boost Level 2 for role icons.', ephemeral: true });
-        }
-
         const role = interaction.options.getRole('role', true);
-        const emojiName = interaction.options.getString('name', true);
-        const image = interaction.options.getAttachment('image', true);
+        const emoji = interaction.options.getString('emoji', true).trim();
         const botMember = guild.members.me;
 
-        if (!/^[A-Za-z0-9_]{2,32}$/.test(emojiName)) {
-          return replyPlain({ content: 'Emoji names must be 2–32 characters and contain only letters, numbers, or underscores.', ephemeral: true });
+        // Role names support Unicode emoji, not Discord's custom-emoji markup.
+        if (!/\p{Extended_Pictographic}/u.test(emoji) || [...new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(emoji)].length !== 1) {
+          return replyPlain({ content: 'Please provide one standard Unicode emoji, such as 💎 or 💜. Custom server emoji codes cannot render inside role names.', ephemeral: true });
         }
-        if (!image.contentType || !['image/png', 'image/jpeg', 'image/webp'].includes(image.contentType.toLowerCase())) {
-          return replyPlain({ content: 'Upload a static PNG, JPG, or WebP image. GIFs are not supported for role icons.', ephemeral: true });
-        }
-        if (image.size > 256 * 1024) {
-          return replyPlain({ content: 'The image must be 256 KB or smaller.', ephemeral: true });
-        }
-        if (!botMember?.permissions.has(PermissionFlagsBits.CreateGuildExpressions)) {
-          return replyPlain({ content: 'ZERON needs the Create Expressions permission to upload a server emoji.', ephemeral: true });
-        }
-        if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-          return replyPlain({ content: 'ZERON needs the Manage Roles permission to set a role icon.', ephemeral: true });
+        if (!botMember?.permissions.has(PermissionFlagsBits.ManageRoles)) {
+          return replyPlain({ content: 'ZERON needs the Manage Roles permission to rename a role.', ephemeral: true });
         }
         if (!role.editable) {
           return replyPlain({ content: 'ZERON cannot edit that role. Move ZERON’s highest role above the selected role and try again.', ephemeral: true });
         }
 
-        await deferPlain({ ephemeral: true });
-        let createdEmoji = null;
+        const baseName = role.name.startsWith(emoji) ? role.name.slice(emoji.length).trimStart() : role.name;
+        const newName = emoji + ' ' + baseName;
+        if (newName.length > 100) {
+          return replyPlain({ content: 'That role name is too long to add an emoji. Shorten the role name first.', ephemeral: true });
+        }
         try {
-          const response = await fetch(image.url);
-          if (!response.ok) throw new Error('Discord could not provide the uploaded image.');
-          const imageBuffer = Buffer.from(await response.arrayBuffer());
-          if (imageBuffer.length > 256 * 1024) throw new Error('The uploaded image exceeds Discord’s 256 KB limit.');
-
-          createdEmoji = await guild.emojis.create({
-            attachment: imageBuffer,
-            name: emojiName,
-            reason: 'Server owner created a role emoji with ZERON'
-          });
-          await role.edit({
-            icon: imageBuffer,
-            reason: 'Server owner applied a role icon with ZERON'
-          });
-          return editPlain('Created server emoji ' + createdEmoji.toString() + ' and set it as the icon for **' + role.name + '**.');
+          await role.edit({ name: newName, reason: 'Server owner added a Unicode emoji prefix with ZERON' });
+          return replyPlain({ content: 'Updated role name: **' + newName + '**. This works without server boosts or custom role icons.', ephemeral: true });
         } catch (error) {
-          console.error('Role emoji setup failed:', error);
-          return editPlain(createdEmoji
-            ? 'The server emoji ' + createdEmoji.toString() + ' was created, but ZERON could not apply it to **' + role.name + '**. Check the role hierarchy and role icon availability.'
-            : 'Could not create the server emoji: ' + (error.message || 'Unknown Discord error.'));
+          console.error('Role emoji prefix failed:', error);
+          return replyPlain({ content: 'Could not update that role: ' + (error.message || 'Unknown Discord error.'), ephemeral: true });
         }
       }
 
