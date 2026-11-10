@@ -1,6 +1,6 @@
 // Community-reported reference notes for Wanted by DevvGames (Roblox).
 // This is an AI knowledge source only. It does not change gameplay commands or bot features.
-// The community wiki is not affiliated with DevvGames/Roblox. Values and locations may change.
+// Research snapshot: 2026-11-10. Primary source: https://wantedrblx.com/ (community wiki).\n// The community wiki is not affiliated with DevvGames/Roblox. Values and locations may change.
 // Keep confidence labels visible in answers; never present unverified community data as live facts.
 
 const WANTED_GAME_KNOWLEDGE = [
