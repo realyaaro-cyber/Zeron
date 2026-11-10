@@ -1201,7 +1201,6 @@ function createClient(db) {
       description,
       ...attachmentLines,
       '',
-      `Original channel: <#${sourceMessage.channel.id}>`,
       `Original message: ${sourceMessage.url}`,
       `⭐ ${count} star${count === 1 ? '' : 's'}`
     ].join('\n').slice(0, 3900);
