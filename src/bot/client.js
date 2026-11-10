@@ -1485,7 +1485,7 @@ function createClient(db) {
     // AI_PROVIDER is a display name; AI_BASE_URL controls the actual API destination.
     const configuredProvider = (process.env.AI_PROVIDER || '').trim();
     const configuredBaseUrl = (process.env.AI_BASE_URL || 'https://proxy.gonkabroker.com/v1').trim();
-    const baseUrl = configuredBaseUrl.replace(/\\/+$/, '').replace(/\\/chat\\/completions$/i, '');
+    const baseUrl = configuredBaseUrl.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '');
     let parsedBaseUrl;
     try {
       parsedBaseUrl = new URL(baseUrl);
@@ -1497,7 +1497,7 @@ function createClient(db) {
     }
 
     const isOpenRouter = parsedBaseUrl.origin === 'https://openrouter.ai' &&
-      parsedBaseUrl.pathname.replace(/\\/+$/, '') === '/api/v1';
+      parsedBaseUrl.pathname.replace(/\/+$/, '') === '/api/v1';
     const configuredModel = (process.env.AI_MODEL || process.env.OPENROUTER_MODEL || '').trim();
     const models = isOpenRouter
       ? [...new Set([
