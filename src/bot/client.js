@@ -1481,22 +1481,36 @@ function createClient(db) {
     const key = process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY;
     if (!key) return null;
 
-    const customBaseUrl = process.env.AI_BASE_URL;
-    const baseUrl = (customBaseUrl || 'https://proxy.gonkabroker.com/v1').replace(/\/+$/, '');
-    const customProvider = baseUrl !== 'https://openrouter.ai/api/v1';
-    const configuredModel = process.env.AI_MODEL || process.env.OPENROUTER_MODEL;
-    const models = customProvider
-      ? [configuredModel || 'zai-org/GLM-5.3-Flash']
-      : [...new Set([
+    // Any OpenAI-compatible provider can be selected from the host environment.
+    // AI_PROVIDER is a display name; AI_BASE_URL controls the actual API destination.
+    const configuredProvider = (process.env.AI_PROVIDER || '').trim();
+    const configuredBaseUrl = (process.env.AI_BASE_URL || 'https://proxy.gonkabroker.com/v1').trim();
+    const baseUrl = configuredBaseUrl.replace(/\/+$/, '').replace(/\/chat\/completions$/i, '');
+    let parsedBaseUrl;
+    try {
+      parsedBaseUrl = new URL(baseUrl);
+    } catch {
+      throw new Error('AI_BASE_URL must be a valid OpenAI-compatible HTTP(S) API base URL.');
+    }
+    if (!['http:', 'https:'].includes(parsedBaseUrl.protocol)) {
+      throw new Error('AI_BASE_URL must use HTTP or HTTPS.');
+    }
+
+    const isOpenRouter = parsedBaseUrl.origin === 'https://openrouter.ai' &&
+      parsedBaseUrl.pathname.replace(/\/+$/, '') === '/api/v1';
+    const configuredModel = (process.env.AI_MODEL || process.env.OPENROUTER_MODEL || '').trim();
+    const models = isOpenRouter
+      ? [...new Set([
           configuredModel,
           'google/gemini-flash-latest',
           'deepseek/deepseek-flash-latest',
           'openai/gpt-5.2-chat',
           'openai/gpt-5-chat',
           'openai/gpt-4o'
-        ].filter(Boolean))];
+        ].filter(Boolean))]
+      : [configuredModel || 'zai-org/GLM-5.3-Flash'];
 
-    const providerName = customProvider ? 'Custom AI provider' : 'OpenRouter';
+    const providerName = configuredProvider || (isOpenRouter ? 'OpenRouter' : 'Custom AI provider');
     let lastError = null;
     for (const model of models) {
       let requestMessages = messages;
@@ -1506,7 +1520,7 @@ function createClient(db) {
       const minimalSystemPrompt = canCompactSystemPrompt ? aiMinimalSystemPrompt() : null;
       for (let attempt = 0; attempt < 12; attempt++) {
         const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` };
-        if (!customProvider) {
+        if (isOpenRouter) {
           headers['HTTP-Referer'] = 'https://zeronbot.freesrv.com';
           headers['X-Title'] = 'ZERON';
         }
@@ -1524,7 +1538,7 @@ function createClient(db) {
             : { content: null, finishReason: null };
         }
         const detail = await res.text().catch(() => '');
-        if (res.status === 402 && !customProvider) {
+        if (res.status === 402 && isOpenRouter) {
           const affordableMatch = detail.match(/can only afford\s+(\d+)/i);
           const affordableTokens = affordableMatch ? Number(affordableMatch[1]) : 0;
           if (affordableTokens >= 64 && affordableTokens < maxTokens) {

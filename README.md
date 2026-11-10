@@ -42,6 +42,20 @@ Run `/help` in your server to see the full list with usage.
    | `PORT` | Port for the dashboard (optional) |
    | `BASE_URL` | Public address of the dashboard (optional) |
    | `DATABASE_PATH` | Where the SQLite file is stored (optional) |
+   | `AI_PROVIDER` | Optional provider label shown in logs (for example, `Groq`, `OpenRouter`, or `My Proxy`) |
+   | `AI_BASE_URL` | OpenAI-compatible API base URL, usually ending in `/v1`. Defaults to `https://proxy.gonkabroker.com/v1`. |
+   | `AI_MODEL` | Exact model ID from the selected provider. Defaults to `zai-org/GLM-5.3-Flash` for non-OpenRouter providers. |
+   | `AI_API_KEY` | API key for the selected provider. Keep it secret. |
+   
+   Example AI configuration:
+   ```env
+   AI_PROVIDER="My AI Provider"
+   AI_BASE_URL=https://api.example.com/v1
+   AI_MODEL=provider/model-id
+   AI_API_KEY=your-private-api-key
+   ```
+
+   The AI integration uses the OpenAI-compatible `/chat/completions` API. Changing these environment variables is enough to switch compatible providers/models; providers with a different API format need a dedicated adapter. Existing `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` variables remain supported for backward compatibility.
 
 5. **Install and start:**
    ```
