@@ -1698,6 +1698,10 @@ function createClient(db) {
             console.warn(`${provider.provider} rate limit reached for ${model}${retryAfter ? ` (retry after ${retryAfter}s)` : ''}; trying the next configured AI provider.`);
             break;
           }
+          if (res.status === 401 || res.status === 403) {
+            console.warn(`${lastError.message} Provider credentials or access are invalid; skipping to the next configured AI provider.`);
+            break;
+          }
           if (res.status === 404 || res.status === 402 || res.status >= 500) {
             console.warn(`${lastError.message} Trying the next configured AI provider.`);
             break;
