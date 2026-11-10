@@ -3472,16 +3472,16 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         const destination = interaction.options.getChannel('destination_channel', true);
         const threshold = interaction.options.getInteger('threshold', true);
         const enabled = interaction.options.getBoolean('enabled', true);
-        if (!source.isTextBased() || source.guildId !== guild.id || typeof source.messages?.fetch !== 'function') {
+        if (!source.isTextBased() || source.guildId !== interaction.guild.id || typeof source.messages?.fetch !== 'function') {
           return interaction.reply({ content: 'Choose a text channel in this server as the source channel.', ephemeral: true });
         }
-        if (!destination.isTextBased() || destination.guildId !== guild.id || typeof destination.send !== 'function') {
+        if (!destination.isTextBased() || destination.guildId !== interaction.guild.id || typeof destination.send !== 'function') {
           return interaction.reply({ content: 'Choose a text channel in this server as the destination channel.', ephemeral: true });
         }
         if (source.id === destination.id) {
           return interaction.reply({ content: 'Source and destination channels must be different.', ephemeral: true });
         }
-        const botMember = guild.members.me;
+        const botMember = interaction.guild.members.me;
         const sourcePermissions = source.permissionsFor(botMember);
         const destinationPermissions = destination.permissionsFor(botMember);
         const sourceReady = sourcePermissions?.has([
@@ -3502,7 +3502,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
             ephemeral: true
           });
         }
-        const saved = db.saveStarboardSettings(guild.id, {
+        const saved = db.saveStarboardSettings(interaction.guild.id, {
           sourceChannelId: source.id,
           destinationChannelId: destination.id,
           threshold,
