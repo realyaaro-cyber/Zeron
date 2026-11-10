@@ -834,7 +834,7 @@ function guildMenuEmbed(db, guild, userId) {
   return embed;
 }
 // Public guild dashboard. BASE_URL overrides the default domain if set.
-const GUILD_DASHBOARD_URL = (process.env.BASE_URL || 'https://zeronbot.freesrv.com').replace(/\/$/, '') + '/guilds';
+const GUILD_DASHBOARD_URL = (process.env.BASE_URL || 'https://zeron.freesrv.com').replace(/\/$/, '') + '/guilds';
 
 function guildMenuRows() {
   return [new ActionRowBuilder().addComponents(
