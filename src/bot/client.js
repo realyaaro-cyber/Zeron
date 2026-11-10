@@ -1536,7 +1536,7 @@ function createClient(db) {
   function aiMinimalSystemPrompt(userText = '') {
     const text = String(userText || '').toLowerCase();
     const asksWanted = /\b(wanted|devvgames|oasis city|rod|sir\.b|bert|ofy|vault|atm|mission|vehicle|roblox)\b/.test(text);
-    const asksZeron = /\b(zeron|\\/help|\\/commands|dashboard|ticket|verification|moderation|economy|coins|guild|fishing|trivia|slots|rank|leaderboard|permission|command)\b/.test(text);
+    const asksZeron = /\b(zeron|help|commands|dashboard|ticket|verification|moderation|economy|coins|guild|fishing|trivia|slots|rank|leaderboard|permission|command)\b/.test(text);
     const asksAccess = /\b(permission|permissions|who can|access|owner.only|restricted|admin|moderator|role)\b/.test(text);
     const parts = [
       'You are ZERON, a friendly Discord assistant. Reply naturally and concisely in the user’s language; support English, Hinglish, Malay, Indonesian, Filipino/Tagalog, and Bangla. Default Bangla to Banglish unless Bengali script is requested.',
