@@ -3559,32 +3559,35 @@ ${failed} could not receive coins (balance limit).` : ''}`;
       }
 
       if (commandName === 'jail') {
+        const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        const deferPlain = interaction.__v2OriginalMethods?.deferReply || interaction.deferReply.bind(interaction);
+        const editPlain = interaction.__v2OriginalMethods?.editReply || interaction.editReply.bind(interaction);
         const guild = interaction.guild;
         const target = interaction.options.getMember('user');
         const reason = 'Jailed by the server owner';
         const me = guild.members.me;
-        if (interaction.user.id !== guild.ownerId) return interaction.reply({ content: 'Only the server owner can use this command.', ephemeral: true });
+        if (interaction.user.id !== guild.ownerId) return replyPlain({ content: 'Only the server owner can use this command.', ephemeral: true });
         const jailRoleId = db.getSettings(guild.id).jail_role_id;
         const jailRole = jailRoleId ? guild.roles.cache.get(jailRoleId) : null;
-        if (!jailRole) return interaction.reply({ content: 'Set a jail role first on the dashboard (Jail page).', ephemeral: true });
-        if (!target) return interaction.reply({ content: 'That member is not in this server.', ephemeral: true });
-        if (target.user.bot) return interaction.reply({ content: 'You cannot jail a bot.', ephemeral: true });
-        if (target.id === interaction.user.id) return interaction.reply({ content: 'You cannot jail yourself.', ephemeral: true });
-        if (target.id === guild.ownerId) return interaction.reply({ content: 'You cannot jail the server owner.', ephemeral: true });
-        if (!me.permissions.has(PermissionFlagsBits.ManageRoles)) return interaction.reply({ content: 'ZERON needs the Manage Roles permission.', ephemeral: true });
+        if (!jailRole) return replyPlain({ content: 'Set a jail role first on the dashboard (Jail page).', ephemeral: true });
+        if (!target) return replyPlain({ content: 'That member is not in this server.', ephemeral: true });
+        if (target.user.bot) return replyPlain({ content: 'You cannot jail a bot.', ephemeral: true });
+        if (target.id === interaction.user.id) return replyPlain({ content: 'You cannot jail yourself.', ephemeral: true });
+        if (target.id === guild.ownerId) return replyPlain({ content: 'You cannot jail the server owner.', ephemeral: true });
+        if (!me.permissions.has(PermissionFlagsBits.ManageRoles)) return replyPlain({ content: 'ZERON needs the Manage Roles permission.', ephemeral: true });
         if (jailRole.id === guild.id || jailRole.managed || jailRole.position >= me.roles.highest.position) {
-          return interaction.reply({ content: 'Pick a role below ZERON\'s highest role that is not managed by an integration.', ephemeral: true });
+          return replyPlain({ content: 'Pick a role below ZERON\'s highest role that is not managed by an integration.', ephemeral: true });
         }
         if (target.roles.highest.position >= me.roles.highest.position) {
-          return interaction.reply({ content: 'ZERON cannot manage that member, because their top role is above ZERON.', ephemeral: true });
+          return replyPlain({ content: 'ZERON cannot manage that member, because their top role is above ZERON.', ephemeral: true });
         }
         if (interaction.user.id !== guild.ownerId && target.roles.highest.position >= interaction.member.roles.highest.position) {
-          return interaction.reply({ content: 'You cannot jail someone with the same or a higher role than yours.', ephemeral: true });
+          return replyPlain({ content: 'You cannot jail someone with the same or a higher role than yours.', ephemeral: true });
         }
         if (db.getJail(guild.id, target.id)) {
-          return interaction.reply({ content: `${target.user.username} is already jailed. Use /unjail first.`, ephemeral: true });
+          return replyPlain({ content: `${target.user.username} is already jailed. Use /unjail first.`, ephemeral: true });
         }
-        await interaction.deferReply({ ephemeral: true });
+        await deferPlain({ ephemeral: true });
         const toRemove = target.roles.cache
           .filter(role => role.id !== guild.id && role.id !== jailRole.id && role.editable)
           .map(role => role.id);
@@ -3593,22 +3596,25 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           await target.roles.add(jailRole, reason);
           if (toRemove.length) await target.roles.remove(toRemove, reason);
         } catch (error) {
-          return interaction.editReply(`Could not jail ${target.user.username}: ${error.message}`);
+          return editPlain(`Could not jail ${target.user.username}: ${error.message}`);
         }
         writeLog(guild, 'jail', target.id, reason, interaction.user.id);
-        return interaction.editReply(`🔒 **${target.user.username}** is jailed with **${jailRole.name}**. ${toRemove.length} role(s) saved for /unjail.`);
+        return editPlain(`🔒 **${target.user.username}** is jailed with **${jailRole.name}**. ${toRemove.length} role(s) saved for /unjail.`);
       }
 
       if (commandName === 'unjail') {
+        const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+        const deferPlain = interaction.__v2OriginalMethods?.deferReply || interaction.deferReply.bind(interaction);
+        const editPlain = interaction.__v2OriginalMethods?.editReply || interaction.editReply.bind(interaction);
         const guild = interaction.guild;
         const target = interaction.options.getMember('user');
         const me = guild.members.me;
-        if (interaction.user.id !== guild.ownerId) return interaction.reply({ content: 'Only the server owner can use this command.', ephemeral: true });
-        if (!target) return interaction.reply({ content: 'That member is not in this server.', ephemeral: true });
+        if (interaction.user.id !== guild.ownerId) return replyPlain({ content: 'Only the server owner can use this command.', ephemeral: true });
+        if (!target) return replyPlain({ content: 'That member is not in this server.', ephemeral: true });
         const record = db.getJail(guild.id, target.id);
-        if (!record) return interaction.reply({ content: `${target.user.username} is not jailed.`, ephemeral: true });
-        if (!me.permissions.has(PermissionFlagsBits.ManageRoles)) return interaction.reply({ content: 'ZERON needs the Manage Roles permission.', ephemeral: true });
-        await interaction.deferReply({ ephemeral: true });
+        if (!record) return replyPlain({ content: `${target.user.username} is not jailed.`, ephemeral: true });
+        if (!me.permissions.has(PermissionFlagsBits.ManageRoles)) return replyPlain({ content: 'ZERON needs the Manage Roles permission.', ephemeral: true });
+        await deferPlain({ ephemeral: true });
         const saved = JSON.parse(record.roles || '[]');
         const restore = saved.filter(id => {
           const role = guild.roles.cache.get(id);
@@ -3618,11 +3624,11 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           if (target.roles.cache.has(record.jailed_role_id)) await target.roles.remove(record.jailed_role_id, 'Unjailed');
           if (restore.length) await target.roles.add(restore, 'Unjailed');
         } catch (error) {
-          return interaction.editReply(`Could not unjail ${target.user.username}: ${error.message}`);
+          return editPlain(`Could not unjail ${target.user.username}: ${error.message}`);
         }
         db.clearJail(guild.id, target.id);
         writeLog(guild, 'unjail', target.id, 'Roles restored', interaction.user.id);
-        return interaction.editReply(`🔓 **${target.user.username}** is unjailed. ${restore.length} role(s) restored.`);
+        return editPlain(`🔓 **${target.user.username}** is unjailed. ${restore.length} role(s) restored.`);
       }
 
       if (commandName === 'afk') {
@@ -3756,16 +3762,17 @@ ${failed} could not receive coins (balance limit).` : ''}`;
       }
 
       if (['kick','ban','timeout','untimeout'].includes(commandName)) {
+        const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
         const permission = { kick: PermissionFlagsBits.KickMembers, ban: PermissionFlagsBits.BanMembers,
           timeout: PermissionFlagsBits.ModerateMembers, untimeout: PermissionFlagsBits.ModerateMembers }[commandName];
-        if (!interaction.memberPermissions?.has(permission)) return interaction.reply({ content: 'You do not have permission to do that.', ephemeral: true });
-        if (!guild.members.me?.permissions.has(permission)) return interaction.reply({ content: 'ZERON lacks the required server permission.', ephemeral: true });
+        if (!interaction.memberPermissions?.has(permission)) return replyPlain({ content: 'You do not have permission to do that.', ephemeral: true });
+        if (!guild.members.me?.permissions.has(permission)) return replyPlain({ content: 'ZERON lacks the required server permission.', ephemeral: true });
         if (commandName === 'unban') { /* handled below */ }
-        if (!targetMember) return interaction.reply({ content: 'That member is not in this server.', ephemeral: true });
-        if (targetMember.id === interaction.user.id) return interaction.reply({ content: 'You cannot moderate yourself.', ephemeral: true });
-        if (targetMember.id === guild.ownerId) return interaction.reply({ content: 'The server owner cannot be moderated by this command.', ephemeral: true });
-        if (targetMember.roles.highest.position >= guild.members.me.roles.highest.position) return interaction.reply({ content: 'ZERON role must be higher than the target member role.', ephemeral: true });
-        if (actor.roles?.highest?.position <= targetMember.roles.highest.position && interaction.user.id !== guild.ownerId) return interaction.reply({ content: 'Your highest role must be higher than the target member role.', ephemeral: true });
+        if (!targetMember) return replyPlain({ content: 'That member is not in this server.', ephemeral: true });
+        if (targetMember.id === interaction.user.id) return replyPlain({ content: 'You cannot moderate yourself.', ephemeral: true });
+        if (targetMember.id === guild.ownerId) return replyPlain({ content: 'The server owner cannot be moderated by this command.', ephemeral: true });
+        if (targetMember.roles.highest.position >= guild.members.me.roles.highest.position) return replyPlain({ content: 'ZERON role must be higher than the target member role.', ephemeral: true });
+        if (actor.roles?.highest?.position <= targetMember.roles.highest.position && interaction.user.id !== guild.ownerId) return replyPlain({ content: 'Your highest role must be higher than the target member role.', ephemeral: true });
         if (commandName === 'kick') await targetMember.kick(reason);
         if (commandName === 'ban') await targetMember.ban({ reason });
         if (commandName === 'timeout') {
@@ -3774,16 +3781,16 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         }
         if (commandName === 'untimeout') await targetMember.timeout(null, 'Timeout removed by moderator');
         await writeLog(guild, commandName, targetMember.id, reason, interaction.user.id);
-        return interaction.reply({ content: `✅ ${target.tag} — ${commandName} completed.`, ephemeral: true });
+        return replyPlain({ content: `✅ ${target.tag} — ${commandName} completed.`, ephemeral: true });
       }
       if (commandName === 'unban') {
-        if (!interaction.memberPermissions?.has(PermissionFlagsBits.BanMembers)) return interaction.reply({ content: 'You need Ban Members permission.', ephemeral: true });
-        if (!guild.members.me?.permissions.has(PermissionFlagsBits.BanMembers)) return interaction.reply({ content: 'ZERON lacks Ban Members permission.', ephemeral: true });
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.BanMembers)) return replyPlain({ content: 'You need Ban Members permission.', ephemeral: true });
+        if (!guild.members.me?.permissions.has(PermissionFlagsBits.BanMembers)) return replyPlain({ content: 'ZERON lacks Ban Members permission.', ephemeral: true });
         const userId = interaction.options.getString('user_id');
-        if (!/^\d{17,20}$/.test(userId)) return interaction.reply({ content: 'Enter a valid Discord user ID.', ephemeral: true });
+        if (!/^\d{17,20}$/.test(userId)) return replyPlain({ content: 'Enter a valid Discord user ID.', ephemeral: true });
         await guild.members.unban(userId, reason);
         await writeLog(guild, 'unban', userId, reason, interaction.user.id);
-        return interaction.reply({ content: `✅ Unbanned user ID ${userId}.`, ephemeral: true });
+        return replyPlain({ content: `✅ Unbanned user ID ${userId}.`, ephemeral: true });
       }
       if (commandName === 'purge') {
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageMessages)) return interaction.reply({ content: 'You need Manage Messages permission.', ephemeral: true });
