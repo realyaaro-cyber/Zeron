@@ -418,6 +418,14 @@ db.exec("ALTER TABLE guild_settings ADD COLUMN levelup_message TEXT NOT NULL DEF
       guild_id TEXT PRIMARY KEY,
       channel_id TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS ai_chat_channel_list (
+      guild_id TEXT NOT NULL,
+      channel_id TEXT NOT NULL,
+      PRIMARY KEY (guild_id, channel_id)
+    );
+    INSERT OR IGNORE INTO ai_chat_channel_list (guild_id, channel_id)
+      SELECT guild_id, channel_id FROM ai_chat_channels;
+    DELETE FROM ai_chat_channels;
     CREATE TABLE IF NOT EXISTS ai_builder_channels (
       guild_id TEXT NOT NULL,
       channel_id TEXT NOT NULL,
@@ -2085,17 +2093,20 @@ db.exec("ALTER TABLE guild_settings ADD COLUMN levelup_message TEXT NOT NULL DEF
     unmarkAiCreatedChannel(guildId, channelId) {
       return db.prepare('DELETE FROM ai_builder_channels WHERE guild_id = ? AND channel_id = ?').run(String(guildId), String(channelId)).changes > 0;
     },
-    getAiChannel(guildId) {
-      const row = db.prepare('SELECT channel_id FROM ai_chat_channels WHERE guild_id = ?').get(String(guildId));
-      return row ? row.channel_id : null;
+    getAiChannels(guildId) {
+      return db.prepare('SELECT channel_id FROM ai_chat_channel_list WHERE guild_id = ? ORDER BY rowid')
+        .all(String(guildId)).map(row => row.channel_id);
     },
-    setAiChannel(guildId, channelId) {
-      db.prepare(`INSERT INTO ai_chat_channels (guild_id, channel_id) VALUES (?, ?)
-        ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id`).run(String(guildId), String(channelId));
-      return true;
+    addAiChannel(guildId, channelId) {
+      return db.prepare('INSERT OR IGNORE INTO ai_chat_channel_list (guild_id, channel_id) VALUES (?, ?)')
+        .run(String(guildId), String(channelId)).changes > 0;
     },
-    clearAiChannel(guildId) {
-      return db.prepare('DELETE FROM ai_chat_channels WHERE guild_id = ?').run(String(guildId)).changes > 0;
+    removeAiChannel(guildId, channelId) {
+      return db.prepare('DELETE FROM ai_chat_channel_list WHERE guild_id = ? AND channel_id = ?')
+        .run(String(guildId), String(channelId)).changes > 0;
+    },
+    clearAiChannels(guildId) {
+      return db.prepare('DELETE FROM ai_chat_channel_list WHERE guild_id = ?').run(String(guildId)).changes > 0;
     },
     getUserRestrictions(guildId, userId) {
       return new Set(db.prepare('SELECT command FROM user_command_restrictions WHERE guild_id = ? AND user_id = ?').all(String(guildId), String(userId)).map(row => row.command));
