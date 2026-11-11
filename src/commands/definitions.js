@@ -38,19 +38,21 @@ const commands = [
 
   new SlashCommandBuilder().setName('poll')
     .setDescription('Create and manage server polls.')
-    .addSubcommand(sub => sub.setName('create').setDescription('Create a voting poll.')
-      .addStringOption(o => o.setName('question').setDescription('What should members vote on?').setMaxLength(180).setRequired(true))
-      .addStringOption(o => o.setName('options').setDescription('2–10 options separated by |').setMaxLength(1000).setRequired(true))
-      .addIntegerOption(o => o.setName('duration').setDescription('How long voting stays open, in minutes (default 1440)').setMinValue(1).setMaxValue(10080).setRequired(false))
-      .addBooleanOption(o => o.setName('anonymous').setDescription('Hide voter identities from results').setRequired(false))
-      .addBooleanOption(o => o.setName('multiple').setDescription('Allow members to select multiple options').setRequired(false))
-      .addBooleanOption(o => o.setName('allow_change').setDescription('Allow members to change or update their vote').setRequired(false))
-      .addRoleOption(o => o.setName('required_role').setDescription('Only members with this role can vote').setRequired(false)))
-    .addSubcommand(sub => sub.setName('end').setDescription('Close an active poll.')
-      .addIntegerOption(o => o.setName('poll_id').setDescription('Poll ID shown by /poll list').setMinValue(1).setRequired(true)))
-    .addSubcommand(sub => sub.setName('results').setDescription('View poll results.')
-      .addIntegerOption(o => o.setName('poll_id').setDescription('Poll ID shown by /poll list').setMinValue(1).setRequired(true)))
-    .addSubcommand(sub => sub.setName('list').setDescription('List active polls in this server.')),
+    .addStringOption(o => o.setName('action').setDescription('Choose what to do with polls').setRequired(true)
+      .addChoices(
+        { name: 'Create', value: 'create' },
+        { name: 'List active polls', value: 'list' },
+        { name: 'End a poll', value: 'end' },
+        { name: 'View poll results', value: 'results' }
+      ))
+    .addStringOption(o => o.setName('question').setDescription('Poll question (for Create)').setMaxLength(180).setRequired(false))
+    .addStringOption(o => o.setName('options').setDescription('2–10 options separated by | (for Create)').setMaxLength(1000).setRequired(false))
+    .addIntegerOption(o => o.setName('duration').setDescription('Voting duration in minutes (default 1440)').setMinValue(1).setMaxValue(10080).setRequired(false))
+    .addBooleanOption(o => o.setName('anonymous').setDescription('Hide voter identities (for Create)').setRequired(false))
+    .addBooleanOption(o => o.setName('multiple').setDescription('Allow multiple selections (for Create)').setRequired(false))
+    .addBooleanOption(o => o.setName('allow_change').setDescription('Allow members to change their vote (for Create)').setRequired(false))
+    .addRoleOption(o => o.setName('required_role').setDescription('Role required to vote (for Create)').setRequired(false))
+    .addIntegerOption(o => o.setName('poll_id').setDescription('Poll ID (for End or Results)').setMinValue(1).setRequired(false)),
 
   new SlashCommandBuilder().setName('trivia')
     .setDescription('Start a trivia question, or cancel the running one (Manage Server).').setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
