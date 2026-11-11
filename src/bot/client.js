@@ -127,7 +127,7 @@ function helpFolderEmbed(folder, color, disabled = new Set()) {
       value: c.name === 'starboard'
         ? c.description + '\nUsage: `/starboard setup <enabled> [source_channel] [destination_channel] [threshold]`'
         : c.name === 'poll'
-          ? c.description + '\nUsage: `/poll create|end|results|list`'
+          ? c.description + '\nUsage: `/poll action:<create|list|end|results> [question] [options] [poll_id]`'
           : c.description + '\nUsage: `' + helpUsage(c) + '`'
     })))
     .setFooter({ text: 'Choose another command to view it.' });
@@ -3879,7 +3879,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
       }
 
       if (commandName === 'poll') {
-        const action = interaction.options.getSubcommand();
+        const action = interaction.options.getString('action', true);
         const permission = interaction.memberPermissions;
         if (['create', 'end'].includes(action) &&
             !permission?.has(PermissionFlagsBits.ManageMessages) &&
@@ -3888,9 +3888,9 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         }
         const guild = interaction.guild;
         if (action === 'create') {
-          const question = interaction.options.getString('question', true).trim();
+          const question = (interaction.options.getString('question') || '').trim();
           if (!question) return interaction.reply({ content: 'The poll question cannot be empty.', ephemeral: true });
-          const optionText = interaction.options.getString('options', true);
+          const optionText = interaction.options.getString('options') || '';
           const options = optionText.split('|').map(value => value.trim()).filter(Boolean);
           const unique = new Set(options.map(value => value.toLocaleLowerCase()));
           if (options.length < 2 || options.length > 10 || unique.size !== options.length || options.some(value => value.length > 80)) {
@@ -3933,7 +3933,8 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           const body = active.map(poll => '**#' + poll.id + '** · ' + poll.question.slice(0, 120) + '\n<#' + poll.channel_id + '> · closes <t:' + Math.floor(poll.ends_at / 1000) + ':R>').join('\n\n');
           return interaction.reply({ content: '📊 **Active polls**\n' + body, ephemeral: true });
         }
-        const pollId = interaction.options.getInteger('poll_id', true);
+        const pollId = interaction.options.getInteger('poll_id');
+        if (!pollId) return interaction.reply({ content: 'Choose a Poll ID when using End or Results.', ephemeral: true });
         const poll = db.getPoll(guild.id, pollId);
         if (!poll) return interaction.reply({ content: 'Poll #' + pollId + ' was not found in this server.', ephemeral: true });
         if (action === 'end') {
