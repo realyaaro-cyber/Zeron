@@ -558,7 +558,7 @@ async function sendSetupMessage(client, guild) {
         name: '📜 Privacy policy',
         value: 'Our privacy policy is linked in ZERON\'s bot description. Please read it before you use the dashboard: ' + PRIVACY_LINK
       },
-      { name: '💬 Support server', value: 'https://discord.gg/NdwqtBJnuN' }
+      { name: '💬 Support server', value: 'https://discord.gg/g42heuPsmy' }
     )
     .setFooter({ text: 'ZERON • Made by YaaroX' });
 
