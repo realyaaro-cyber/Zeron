@@ -181,6 +181,15 @@ function buildPollRows(poll, closed = false) {
   return rows;
 }
 
+function pollV2Payload(poll, votes = [], closed = false) {
+  const embed = buildPollEmbed(poll, votes, closed);
+  const rows = buildPollRows(poll, closed);
+  return {
+    components: [embedToContainer(embed, rows)],
+    flags: require('discord.js').MessageFlags.IsComponentsV2
+  };
+}
+
 function helpComponents() {
   const entries = [
     ...HELP_FOLDERS.map(f => ({ label: f.label, description: f.description, value: 'folder:' + f.id })),
@@ -1362,10 +1371,7 @@ function createClient(db) {
       const message = await channel.messages.fetch(poll.message_id).catch(() => null);
       if (!message) continue;
       const closedPoll = { ...poll, status: 'closed' };
-      await message.edit({
-        embeds: [buildPollEmbed(closedPoll, db.getPollVotes(poll.id), true)],
-        components: buildPollRows(closedPoll, true)
-      }).catch(error => console.error('Poll close update failed:', error.message));
+      await message.edit(pollV2Payload(closedPoll, db.getPollVotes(poll.id), true)).catch(error => console.error('Poll close update failed:', error.message));
     }
   }
 
@@ -3351,7 +3357,7 @@ const fishWaitMessages = new Map();
         if (poll.status === 'active') {
           db.closePoll(interaction.guildId, poll.id);
           const closedPoll = { ...poll, status: 'closed' };
-          await interaction.message.edit({ embeds: [buildPollEmbed(closedPoll, db.getPollVotes(poll.id), true)], components: [] }).catch(() => {});
+          await interaction.message.edit(pollV2Payload(closedPoll, db.getPollVotes(poll.id), true)).catch(() => {});
         }
         return interaction.reply({ content: 'This poll has closed. You can no longer vote.', ephemeral: true });
       }
@@ -3382,10 +3388,7 @@ const fishWaitMessages = new Map();
         }
       }
       db.savePollVote(poll.id, interaction.user.id, selected, Date.now());
-      return interaction.update({
-        embeds: [buildPollEmbed(poll, db.getPollVotes(poll.id), false)],
-        components: buildPollRows(poll, false)
-      });
+      return interaction.update(pollV2Payload(poll, db.getPollVotes(poll.id), false));
     }
 
     if (interaction.isButton() && interaction.customId.startsWith('nx-lb:')) {
@@ -3917,10 +3920,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           const poll = db.getPoll(guild.id, pollId);
           await interaction.deferReply({ ephemeral: true });
           try {
-            const message = await interaction.channel.send({
-              embeds: [buildPollEmbed(poll, [], false)],
-              components: buildPollRows(poll, false)
-            });
+            const message = await interaction.channel.send(pollV2Payload(poll, [], false));
             db.setPollMessage(pollId, message.id);
             return interaction.editReply({ content: 'Poll #' + pollId + ' published in this channel. It closes <t:' + Math.floor(endsAt / 1000) + ':R>.' });
           } catch (error) {
@@ -3945,14 +3945,14 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           const closedPoll = { ...poll, status: 'closed' };
           const channel = await guild.channels.fetch(poll.channel_id).catch(() => null);
           const message = channel && poll.message_id ? await channel.messages.fetch(poll.message_id).catch(() => null) : null;
-          if (message) await message.edit({ embeds: [buildPollEmbed(closedPoll, db.getPollVotes(pollId), true)], components: [] }).catch(() => {});
+          if (message) await message.edit(pollV2Payload(closedPoll, db.getPollVotes(pollId), true)).catch(() => {});
           return interaction.reply({ content: 'Poll #' + pollId + ' has been closed. Final results are available with /poll results.', ephemeral: true });
         }
         if (action === 'results') {
           const closed = poll.status !== 'active' || Number(poll.ends_at) <= Date.now();
           return interaction.reply({
-            embeds: [buildPollEmbed({ ...poll, status: closed ? 'closed' : poll.status }, db.getPollVotes(pollId), closed)],
-            ephemeral: true
+            ...pollV2Payload({ ...poll, status: closed ? 'closed' : poll.status }, db.getPollVotes(pollId), closed),
+            flags: require('discord.js').MessageFlags.IsComponentsV2 | require('discord.js').MessageFlags.Ephemeral
           });
         }
       }
