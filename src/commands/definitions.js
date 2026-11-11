@@ -36,6 +36,23 @@ const commands = [
     .addBooleanOption(o => o.setName('enabled').setDescription('true = set the reward, false = remove it').setRequired(true))
     .addRoleOption(o => o.setName('role').setDescription('Role to give (required when enabled is true)').setRequired(false)),
 
+  new SlashCommandBuilder().setName('poll')
+    .setDescription('Create and manage server polls.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+    .addSubcommand(sub => sub.setName('create').setDescription('Create a voting poll.')
+      .addStringOption(o => o.setName('question').setDescription('What should members vote on?').setMaxLength(180).setRequired(true))
+      .addStringOption(o => o.setName('options').setDescription('2–10 options separated by |').setMaxLength(1000).setRequired(true))
+      .addIntegerOption(o => o.setName('duration').setDescription('How long voting stays open, in minutes (default 1440)').setMinValue(1).setMaxValue(10080).setRequired(false))
+      .addBooleanOption(o => o.setName('anonymous').setDescription('Hide voter identities from results').setRequired(false))
+      .addBooleanOption(o => o.setName('multiple').setDescription('Allow members to select multiple options').setRequired(false))
+      .addBooleanOption(o => o.setName('allow_change').setDescription('Allow members to change or update their vote').setRequired(false))
+      .addRoleOption(o => o.setName('required_role').setDescription('Only members with this role can vote').setRequired(false)))
+    .addSubcommand(sub => sub.setName('end').setDescription('Close an active poll.')
+      .addIntegerOption(o => o.setName('poll_id').setDescription('Poll ID shown by /poll list').setMinValue(1).setRequired(true)))
+    .addSubcommand(sub => sub.setName('results').setDescription('View poll results.')
+      .addIntegerOption(o => o.setName('poll_id').setDescription('Poll ID shown by /poll list').setMinValue(1).setRequired(true)))
+    .addSubcommand(sub => sub.setName('list').setDescription('List active polls in this server.')),
+
   new SlashCommandBuilder().setName('trivia')
     .setDescription('Start a trivia question, or cancel the running one (Manage Server).').setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addStringOption(o => o.setName('question').setDescription('The question to ask').setRequired(false))
