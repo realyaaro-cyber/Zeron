@@ -68,6 +68,9 @@ function helpMainCommands() {
 }
 
 function helpUsage(cmd) {
+  if ((cmd.options || []).some(option => option.type === 1)) {
+    return '/' + cmd.name + ' <' + cmd.options.map(option => option.name).join('|') + '>';
+  }
   const parts = (cmd.options || []).map(o => (o.required ? '<' + o.name + '>' : '[' + o.name + ']'));
   return ['/' + cmd.name, ...parts].join(' ');
 }
@@ -138,7 +141,12 @@ function buildPollEmbed(poll, votes = [], closed = false) {
     const count = counts[index];
     const percent = total ? Math.round(count / total * 100) : 0;
     const bar = '▰'.repeat(Math.round(percent / 10)) + '▱'.repeat(10 - Math.round(percent / 10));
-    return { name: (index + 1) + '. ' + option, value: bar + '  **' + count + '** (' + percent + '%)', inline: false };
+    const voterList = !poll.anonymous
+      ? votes.filter(vote => vote.options.includes(index)).slice(0, 12).map(vote => '<@' + vote.userId + '>').join(', ')
+      : '';
+    const voterText = voterList ? '\\nVoters: ' + voterList : '';
+    const extraVoters = !poll.anonymous && count > 12 ? ' +' + (count - 12) + ' more' : '';
+    return { name: (index + 1) + '. ' + option, value: bar + '  **' + count + '** (' + percent + '%)' + voterText + extraVoters, inline: false };
   });
   const ends = Number(poll.ends_at || 0);
   const status = closed || poll.status !== 'active' || ends <= Date.now() ? '🔒 Poll closed' : '🟢 Voting is open';
@@ -3864,11 +3872,13 @@ ${failed} could not receive coins (balance limit).` : ''}`;
       }
 
       if (commandName === 'poll') {
-        const permission = interaction.memberPermissions;
-        if (!permission?.has(PermissionFlagsBits.ManageMessages) && !permission?.has(PermissionFlagsBits.Administrator)) {
-          return interaction.reply({ content: 'Only administrators and moderators with Manage Messages can manage polls.', ephemeral: true });
-        }
         const action = interaction.options.getSubcommand();
+        const permission = interaction.memberPermissions;
+        if (['create', 'end'].includes(action) &&
+            !permission?.has(PermissionFlagsBits.ManageMessages) &&
+            !permission?.has(PermissionFlagsBits.Administrator)) {
+          return interaction.reply({ content: 'Only administrators and moderators with Manage Messages can create or close polls.', ephemeral: true });
+        }
         const guild = interaction.guild;
         if (action === 'create') {
           const question = interaction.options.getString('question', true).trim();
