@@ -526,8 +526,8 @@ function fishingXpFromValue(value) {
 }
 
 // Links used in the setup message sent when ZERON joins a server.
-const DASHBOARD_LINK = 'https://zeronbot.freesrv.com/';
-const PRIVACY_LINK = 'https://zeronbot.freesrv.com/privacy-zeron.html';
+const DASHBOARD_LINK = 'https://zeron.freesrv.com/';
+const PRIVACY_LINK = 'https://zeron.freesrv.com/privacy-zeron.html';
 
 
 // Sent when ZERON joins a server: DMs the person who added the bot, or the server's system channel if DMs are closed.
@@ -546,12 +546,12 @@ async function sendSetupMessage(client, guild) {
       {
         name: '⚙️ Quick setup',
         value: [
-          '1. Open the dashboard and pick your server.',
-          '2. Set your channels in **Channel manager** (welcome, mod logs, announcements).',
-          '3. Turn modules on or off in **General settings**.',
-          '4. Create an **Unverified** role and give it to new members with **Auto-role**.',
-          '5. In **Verification**, pick a **Verified** role and your channels, then **Post panel**.',
-          '6. Check **Automod** and **Tickets** if you want them.'
+          '1. Open the dashboard and select your server.',
+          '2. Configure your channels in **Channel Manager**.',
+          '3. Adjust modules in **General Settings**.',
+          '4. Set up **Auto-role** for new members.',
+          '5. Configure **Verification**, select your roles and channels, then **Post Panel**.',
+          '6. Set up **AutoMod** and **Tickets** if needed.'
         ].join('\n')
       },
       {
