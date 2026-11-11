@@ -3365,12 +3365,15 @@ const fishWaitMessages = new Map();
         }
       }
       const previous = db.getPollVote(poll.id, interaction.user.id);
-      if (previous && !poll.allow_change) {
+      if (previous && !poll.allow_change && !poll.multiple) {
         return interaction.reply({ content: 'You have already voted in this poll. Vote changes are disabled.', ephemeral: true });
       }
       let selected = [optionIndex];
       if (poll.multiple) {
         selected = previous ? [...previous.options] : [];
+        if (!poll.allow_change && selected.includes(optionIndex)) {
+          return interaction.reply({ content: 'You have already selected this option. Vote changes are disabled.', ephemeral: true });
+        }
         selected = selected.includes(optionIndex) ? selected.filter(index => index !== optionIndex) : [...selected, optionIndex];
         if (!selected.length) {
           return interaction.reply({ content: 'Select at least one option before submitting your vote.', ephemeral: true });
@@ -3886,6 +3889,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         const guild = interaction.guild;
         if (action === 'create') {
           const question = interaction.options.getString('question', true).trim();
+          if (!question) return interaction.reply({ content: 'The poll question cannot be empty.', ephemeral: true });
           const optionText = interaction.options.getString('options', true);
           const options = optionText.split('|').map(value => value.trim()).filter(Boolean);
           const unique = new Set(options.map(value => value.toLocaleLowerCase()));
