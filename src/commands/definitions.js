@@ -38,7 +38,6 @@ const commands = [
 
   new SlashCommandBuilder().setName('poll')
     .setDescription('Create and manage server polls.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
     .addSubcommand(sub => sub.setName('create').setDescription('Create a voting poll.')
       .addStringOption(o => o.setName('question').setDescription('What should members vote on?').setMaxLength(180).setRequired(true))
       .addStringOption(o => o.setName('options').setDescription('2–10 options separated by |').setMaxLength(1000).setRequired(true))
