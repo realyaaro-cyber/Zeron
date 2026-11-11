@@ -624,6 +624,7 @@ function toV2Payload(payload, ephemeral) {
 const LEGACY_V2_EXCLUSIONS = new Set([
   'command:starboard', // Starboard setup confirmations and errors stay as plain Discord messages.
   'command:poll', // Poll command replies use legacy payloads because poll results contain embeds.
+  'command:rank', // Rank replies are image attachments; do not wrap file-only replies in an empty V2 container.
   'component:nx-poll-vote', // Poll vote updates edit legacy embeds and button rows.
 ]);
 
