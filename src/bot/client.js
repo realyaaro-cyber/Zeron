@@ -144,7 +144,7 @@ function buildPollEmbed(poll, votes = [], closed = false) {
     const voterList = !poll.anonymous
       ? votes.filter(vote => vote.options.includes(index)).slice(0, 12).map(vote => '<@' + vote.userId + '>').join(', ')
       : '';
-    const voterText = voterList ? '\\nVoters: ' + voterList : '';
+    const voterText = voterList ? '\nVoters: ' + voterList : '';
     const extraVoters = !poll.anonymous && count > 12 ? ' +' + (count - 12) + ' more' : '';
     return { name: (index + 1) + '. ' + option, value: bar + '  **' + count + '** (' + percent + '%)' + voterText + extraVoters, inline: false };
   });
@@ -3357,8 +3357,12 @@ const fishWaitMessages = new Map();
       if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= options.length) {
         return interaction.reply({ content: 'That poll option is invalid.', ephemeral: true });
       }
-      if (poll.required_role_id && !interaction.member?.roles?.cache?.has(poll.required_role_id)) {
-        return interaction.reply({ content: 'You need the required role to vote in this poll.', ephemeral: true });
+      if (poll.required_role_id) {
+        const member = interaction.guild.members.cache.get(interaction.user.id)
+          || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+        if (!member?.roles.cache.has(poll.required_role_id)) {
+          return interaction.reply({ content: 'You need the required role to vote in this poll.', ephemeral: true });
+        }
       }
       const previous = db.getPollVote(poll.id, interaction.user.id);
       if (previous && !poll.allow_change) {
@@ -3905,17 +3909,18 @@ ${failed} could not receive coins (balance limit).` : ''}`;
             createdAt, endsAt, anonymous, multiple, allowChange, requiredRoleId: requiredRole?.id || null
           });
           const poll = db.getPoll(guild.id, pollId);
+          await interaction.deferReply({ ephemeral: true });
           try {
             const message = await interaction.channel.send({
               embeds: [buildPollEmbed(poll, [], false)],
               components: buildPollRows(poll, false)
             });
             db.setPollMessage(pollId, message.id);
-            return interaction.reply({ content: 'Poll #' + pollId + ' published in this channel. It closes <t:' + Math.floor(endsAt / 1000) + ':R>.', ephemeral: true });
+            return interaction.editReply({ content: 'Poll #' + pollId + ' published in this channel. It closes <t:' + Math.floor(endsAt / 1000) + ':R>.' });
           } catch (error) {
             db.closePoll(guild.id, pollId);
             console.error('Poll publish failed:', error.message);
-            return interaction.reply({ content: 'ZERON could not publish the poll. Check its channel permissions and try again.', ephemeral: true });
+            return interaction.editReply({ content: 'ZERON could not publish the poll. Check its channel permissions and try again.' });
           }
         }
         if (action === 'list') {
