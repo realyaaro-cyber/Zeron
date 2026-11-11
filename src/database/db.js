@@ -104,6 +104,32 @@ function initializeDatabase(filename) {
       status TEXT NOT NULL DEFAULT 'active',
       winner_id TEXT
     );
+    CREATE TABLE IF NOT EXISTS polls (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      channel_id TEXT NOT NULL,
+      message_id TEXT,
+      question TEXT NOT NULL,
+      options TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      ends_at INTEGER NOT NULL,
+      anonymous INTEGER NOT NULL DEFAULT 0,
+      multiple INTEGER NOT NULL DEFAULT 0,
+      allow_change INTEGER NOT NULL DEFAULT 1,
+      required_role_id TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      closed_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_polls_due ON polls(status, ends_at);
+    CREATE TABLE IF NOT EXISTS poll_votes (
+      poll_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
+      options TEXT NOT NULL,
+      voted_at INTEGER NOT NULL,
+      PRIMARY KEY (poll_id, user_id),
+      FOREIGN KEY (poll_id) REFERENCES polls(id) ON DELETE CASCADE
+    );
     CREATE TABLE IF NOT EXISTS economy_collectibles (
       guild_id TEXT NOT NULL, user_id TEXT NOT NULL, collectible_id TEXT NOT NULL,
       quantity INTEGER NOT NULL DEFAULT 0 CHECK(quantity >= 0),
@@ -1224,6 +1250,48 @@ db.exec("ALTER TABLE guild_settings ADD COLUMN levelup_message TEXT NOT NULL DEF
         JOIN player_guilds o ON o.id = w.opponent_id
         WHERE w.guild_id = '${GUILD_NETWORK}'
         ORDER BY w.created_at DESC LIMIT ?`).all(limit);
+    },
+    getPoll(guildId, pollId) {
+      return db.prepare('SELECT * FROM polls WHERE guild_id = ? AND id = ?').get(String(guildId), Number(pollId)) || null;
+    },
+    createPoll(guildId, item) {
+      return db.prepare(`INSERT INTO polls
+        (guild_id, channel_id, question, options, created_by, created_at, ends_at, anonymous, multiple, allow_change, required_role_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        String(guildId), String(item.channelId), item.question, JSON.stringify(item.options),
+        String(item.createdBy), item.createdAt, item.endsAt, item.anonymous ? 1 : 0,
+        item.multiple ? 1 : 0, item.allowChange ? 1 : 0, item.requiredRoleId ? String(item.requiredRoleId) : null
+      ).lastInsertRowid;
+    },
+    setPollMessage(pollId, messageId) {
+      db.prepare('UPDATE polls SET message_id = ? WHERE id = ?').run(String(messageId), Number(pollId));
+      return true;
+    },
+    getPollVotes(pollId) {
+      return db.prepare('SELECT user_id, options, voted_at FROM poll_votes WHERE poll_id = ?').all(Number(pollId))
+        .map(row => ({ userId: row.user_id, options: JSON.parse(row.options || '[]'), votedAt: row.voted_at }));
+    },
+    getPollVote(pollId, userId) {
+      const row = db.prepare('SELECT user_id, options, voted_at FROM poll_votes WHERE poll_id = ? AND user_id = ?')
+        .get(Number(pollId), String(userId));
+      return row ? { userId: row.user_id, options: JSON.parse(row.options || '[]'), votedAt: row.voted_at } : null;
+    },
+    savePollVote(pollId, userId, options, votedAt) {
+      db.prepare(`INSERT INTO poll_votes (poll_id, user_id, options, voted_at) VALUES (?, ?, ?, ?)
+        ON CONFLICT(poll_id, user_id) DO UPDATE SET options = excluded.options, voted_at = excluded.voted_at`)
+        .run(Number(pollId), String(userId), JSON.stringify(options), Number(votedAt));
+      return true;
+    },
+    closePoll(guildId, pollId, closedAt = Date.now()) {
+      return db.prepare("UPDATE polls SET status = 'closed', closed_at = ? WHERE guild_id = ? AND id = ? AND status = 'active'")
+        .run(Number(closedAt), String(guildId), Number(pollId)).changes > 0;
+    },
+    getDuePolls(now = Date.now()) {
+      return db.prepare("SELECT * FROM polls WHERE status = 'active' AND ends_at <= ?").all(Number(now));
+    },
+    listActivePolls(guildId) {
+      return db.prepare("SELECT id, channel_id, question, ends_at, created_by FROM polls WHERE guild_id = ? AND status = 'active' ORDER BY ends_at ASC LIMIT 20")
+        .all(String(guildId));
     },
     getActiveTrivia(guildId) {
       return db.prepare("SELECT * FROM trivia_games WHERE guild_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1").get(guildId) || null;
