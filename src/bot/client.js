@@ -41,7 +41,7 @@ const HELP_FOLDERS = [
     id: 'staff',
     label: '🛡️ Administrator & Moderator commands',
     description: 'For admins and moderators. These need Manage Server, Kick, Ban, Timeout or Manage Messages.',
-    names: ['welcome', 'track-invite', 'enable-level-up', 'role-reward', 'starboard', 'kick', 'ban', 'unban', 'timeout', 'untimeout', 'purge', 'trivia', 'vaultalert', 'vaultpost', 'aichat']
+    names: ['welcome', 'track-invite', 'enable-level-up', 'role-reward', 'starboard', 'poll', 'kick', 'ban', 'unban', 'timeout', 'untimeout', 'purge', 'trivia', 'vaultalert', 'vaultpost', 'aichat']
   },
   {
     id: 'member',
@@ -123,9 +123,54 @@ function helpFolderEmbed(folder, color, disabled = new Set()) {
       name: '/' + c.name,
       value: c.name === 'starboard'
         ? c.description + '\nUsage: `/starboard setup <enabled> [source_channel] [destination_channel] [threshold]`'
-        : c.description + '\nUsage: `' + helpUsage(c) + '`'
+        : c.name === 'poll'
+          ? c.description + '\nUsage: `/poll create|end|results|list`'
+          : c.description + '\nUsage: `' + helpUsage(c) + '`'
     })))
     .setFooter({ text: 'Choose another command to view it.' });
+}
+
+function buildPollEmbed(poll, votes = [], closed = false) {
+  const options = JSON.parse(poll.options || '[]');
+  const counts = options.map((_, index) => votes.filter(vote => vote.options.includes(index)).length);
+  const total = votes.length;
+  const fields = options.map((option, index) => {
+    const count = counts[index];
+    const percent = total ? Math.round(count / total * 100) : 0;
+    const bar = '▰'.repeat(Math.round(percent / 10)) + '▱'.repeat(10 - Math.round(percent / 10));
+    return { name: (index + 1) + '. ' + option, value: bar + '  **' + count + '** (' + percent + '%)', inline: false };
+  });
+  const ends = Number(poll.ends_at || 0);
+  const status = closed || poll.status !== 'active' || ends <= Date.now() ? '🔒 Poll closed' : '🟢 Voting is open';
+  const embed = new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle('📊 ' + poll.question)
+    .setDescription(status + (poll.anonymous ? ' · Anonymous voting' : '') + (poll.multiple ? ' · Multiple choices allowed' : ''))
+    .addFields(fields)
+    .setFooter({ text: 'Poll #' + poll.id + ' · ' + total + ' voter' + (total === 1 ? '' : 's') })
+    .setTimestamp(new Date(Number(poll.created_at || Date.now())));
+  if (!closed && poll.status === 'active' && ends > Date.now()) {
+    embed.addFields({ name: 'Closes', value: '<t:' + Math.floor(ends / 1000) + ':R>', inline: true });
+  }
+  return embed;
+}
+
+function buildPollRows(poll, closed = false) {
+  if (closed || poll.status !== 'active' || Number(poll.ends_at) <= Date.now()) return [];
+  const options = JSON.parse(poll.options || '[]');
+  const rows = [];
+  for (let start = 0; start < options.length; start += 5) {
+    const row = new ActionRowBuilder();
+    options.slice(start, start + 5).forEach((option, offset) => {
+      const index = start + offset;
+      row.addComponents(new ButtonBuilder()
+        .setCustomId('nx-poll-vote:' + poll.id + ':' + index)
+        .setLabel((index + 1) + '. ' + option.slice(0, 65))
+        .setStyle(ButtonStyle.Secondary));
+    });
+    rows.push(row);
+  }
+  return rows;
 }
 
 function helpComponents() {
@@ -1298,6 +1343,22 @@ function createClient(db) {
     }
   }
 
+  async function closeDuePolls() {
+    for (const poll of db.getDuePolls(Date.now())) {
+      if (!db.closePoll(poll.guild_id, poll.id, Date.now())) continue;
+      const guild = client.guilds.cache.get(poll.guild_id);
+      const channel = guild ? await guild.channels.fetch(poll.channel_id).catch(() => null) : null;
+      if (!channel || !poll.message_id) continue;
+      const message = await channel.messages.fetch(poll.message_id).catch(() => null);
+      if (!message) continue;
+      const closedPoll = { ...poll, status: 'closed' };
+      await message.edit({
+        embeds: [buildPollEmbed(closedPoll, db.getPollVotes(poll.id), true)],
+        components: buildPollRows(closedPoll, true)
+      }).catch(error => console.error('Poll close update failed:', error.message));
+    }
+  }
+
   client.once(Events.ClientReady, async ready => {
     console.log(`ZERON online as ${ready.user.tag}`);
     const birthdayCheck = () => announceBirthdays().catch(error => console.error('Birthday check failed:', error.message));
@@ -1306,6 +1367,9 @@ function createClient(db) {
     const giveawayCheck = () => client.giveaways.checkDue().catch(error => console.error('Giveaway check failed:', error.message));
     setTimeout(giveawayCheck, 15000);
     setInterval(giveawayCheck, 30 * 1000);
+    const pollCheck = () => closeDuePolls().catch(error => console.error('Poll expiry check failed:', error.message));
+    setTimeout(pollCheck, 20000);
+    setInterval(pollCheck, 15000);
     try {
       applyPresence(client, getPresence(db));
     } catch (error) {
@@ -1547,6 +1611,7 @@ function createClient(db) {
       'enable-level-up': 'To deliver announcements, ZERON needs Send Messages in the configured announcement channel; assigning configured role rewards additionally needs Manage Roles and a reward role below ZERON’s highest role.',
       'role-reward': 'ZERON needs Manage Roles, and the reward role must be below ZERON’s highest role.',
       trivia: 'ZERON must be able to send messages in the channel for the trivia question and result.',
+      poll: 'Poll creation and management require Manage Messages or Administrator; ZERON needs permission to send messages and embed links in the poll channel.',
       kick: 'ZERON needs Kick Members and its highest role must be above the target; the caller’s highest role must also be higher than the target unless the caller is the server owner.',
       ban: 'ZERON needs Ban Members and its highest role must be above the target; the caller’s highest role must also be higher than the target unless the caller is the server owner.',
       unban: 'ZERON needs Ban Members.',
@@ -3265,6 +3330,47 @@ const fishWaitMessages = new Map();
       });
     }
 
+    if (interaction.isButton() && interaction.customId.startsWith('nx-poll-vote:')) {
+      const [, rawPollId, rawOptionIndex] = interaction.customId.split(':');
+      const pollId = Number(rawPollId);
+      const optionIndex = Number(rawOptionIndex);
+      if (!interaction.guildId) return interaction.reply({ content: 'Poll voting only works inside its server.', ephemeral: true });
+      const poll = db.getPoll(interaction.guildId, pollId);
+      if (!poll) return interaction.reply({ content: 'This poll could not be found.', ephemeral: true });
+      if (poll.status !== 'active' || Number(poll.ends_at) <= Date.now()) {
+        if (poll.status === 'active') {
+          db.closePoll(interaction.guildId, poll.id);
+          const closedPoll = { ...poll, status: 'closed' };
+          await interaction.message.edit({ embeds: [buildPollEmbed(closedPoll, db.getPollVotes(poll.id), true)], components: [] }).catch(() => {});
+        }
+        return interaction.reply({ content: 'This poll has closed. You can no longer vote.', ephemeral: true });
+      }
+      const options = JSON.parse(poll.options || '[]');
+      if (!Number.isInteger(optionIndex) || optionIndex < 0 || optionIndex >= options.length) {
+        return interaction.reply({ content: 'That poll option is invalid.', ephemeral: true });
+      }
+      if (poll.required_role_id && !interaction.member?.roles?.cache?.has(poll.required_role_id)) {
+        return interaction.reply({ content: 'You need the required role to vote in this poll.', ephemeral: true });
+      }
+      const previous = db.getPollVote(poll.id, interaction.user.id);
+      if (previous && !poll.allow_change) {
+        return interaction.reply({ content: 'You have already voted in this poll. Vote changes are disabled.', ephemeral: true });
+      }
+      let selected = [optionIndex];
+      if (poll.multiple) {
+        selected = previous ? [...previous.options] : [];
+        selected = selected.includes(optionIndex) ? selected.filter(index => index !== optionIndex) : [...selected, optionIndex];
+        if (!selected.length) {
+          return interaction.reply({ content: 'Select at least one option before submitting your vote.', ephemeral: true });
+        }
+      }
+      db.savePollVote(poll.id, interaction.user.id, selected, Date.now());
+      return interaction.update({
+        embeds: [buildPollEmbed(poll, db.getPollVotes(poll.id), false)],
+        components: buildPollRows(poll, false)
+      });
+    }
+
     if (interaction.isButton() && interaction.customId.startsWith('nx-lb:')) {
       const [, boardType, pageText] = interaction.customId.split(':');
       return interaction.update(buildLeaderboard(interaction.guild, boardType, Number(pageText), interaction.user.id))
@@ -3755,6 +3861,78 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           content: '✅ Members who reach level **' + level + '** will receive <@&' + role.id + '>. Rewards stack, so earlier level roles are kept.',
           ephemeral: true
         });
+      }
+
+      if (commandName === 'poll') {
+        const permission = interaction.memberPermissions;
+        if (!permission?.has(PermissionFlagsBits.ManageMessages) && !permission?.has(PermissionFlagsBits.Administrator)) {
+          return interaction.reply({ content: 'Only administrators and moderators with Manage Messages can manage polls.', ephemeral: true });
+        }
+        const action = interaction.options.getSubcommand();
+        const guild = interaction.guild;
+        if (action === 'create') {
+          const question = interaction.options.getString('question', true).trim();
+          const optionText = interaction.options.getString('options', true);
+          const options = optionText.split('|').map(value => value.trim()).filter(Boolean);
+          const unique = new Set(options.map(value => value.toLocaleLowerCase()));
+          if (options.length < 2 || options.length > 10 || unique.size !== options.length || options.some(value => value.length > 80)) {
+            return interaction.reply({ content: 'Provide 2–10 different options separated by |. Each option must be 80 characters or fewer.', ephemeral: true });
+          }
+          const duration = interaction.options.getInteger('duration') ?? 1440;
+          const anonymous = interaction.options.getBoolean('anonymous') ?? false;
+          const multiple = interaction.options.getBoolean('multiple') ?? false;
+          const allowChange = interaction.options.getBoolean('allow_change') ?? true;
+          const requiredRole = interaction.options.getRole('required_role');
+          const me = guild.members.me;
+          const channelPermissions = interaction.channel?.permissionsFor(me);
+          if (!interaction.channel?.isTextBased?.() || !channelPermissions?.has(PermissionFlagsBits.SendMessages) || !channelPermissions?.has(PermissionFlagsBits.EmbedLinks)) {
+            return interaction.reply({ content: 'ZERON needs Send Messages and Embed Links permission in this channel to publish polls.', ephemeral: true });
+          }
+          const createdAt = Date.now();
+          const endsAt = createdAt + duration * 60 * 1000;
+          const pollId = db.createPoll(guild.id, {
+            channelId: interaction.channelId, question, options, createdBy: interaction.user.id,
+            createdAt, endsAt, anonymous, multiple, allowChange, requiredRoleId: requiredRole?.id || null
+          });
+          const poll = db.getPoll(guild.id, pollId);
+          try {
+            const message = await interaction.channel.send({
+              embeds: [buildPollEmbed(poll, [], false)],
+              components: buildPollRows(poll, false)
+            });
+            db.setPollMessage(pollId, message.id);
+            return interaction.reply({ content: 'Poll #' + pollId + ' published in this channel. It closes <t:' + Math.floor(endsAt / 1000) + ':R>.', ephemeral: true });
+          } catch (error) {
+            db.closePoll(guild.id, pollId);
+            console.error('Poll publish failed:', error.message);
+            return interaction.reply({ content: 'ZERON could not publish the poll. Check its channel permissions and try again.', ephemeral: true });
+          }
+        }
+        if (action === 'list') {
+          const active = db.listActivePolls(guild.id);
+          if (!active.length) return interaction.reply({ content: 'There are no active polls in this server.', ephemeral: true });
+          const body = active.map(poll => '**#' + poll.id + '** · ' + poll.question.slice(0, 120) + '\n<#' + poll.channel_id + '> · closes <t:' + Math.floor(poll.ends_at / 1000) + ':R>').join('\n\n');
+          return interaction.reply({ content: '📊 **Active polls**\n' + body, ephemeral: true });
+        }
+        const pollId = interaction.options.getInteger('poll_id', true);
+        const poll = db.getPoll(guild.id, pollId);
+        if (!poll) return interaction.reply({ content: 'Poll #' + pollId + ' was not found in this server.', ephemeral: true });
+        if (action === 'end') {
+          if (poll.status !== 'active') return interaction.reply({ content: 'Poll #' + pollId + ' is already closed.', ephemeral: true });
+          db.closePoll(guild.id, pollId);
+          const closedPoll = { ...poll, status: 'closed' };
+          const channel = await guild.channels.fetch(poll.channel_id).catch(() => null);
+          const message = channel && poll.message_id ? await channel.messages.fetch(poll.message_id).catch(() => null) : null;
+          if (message) await message.edit({ embeds: [buildPollEmbed(closedPoll, db.getPollVotes(pollId), true)], components: [] }).catch(() => {});
+          return interaction.reply({ content: 'Poll #' + pollId + ' has been closed. Final results are available with /poll results.', ephemeral: true });
+        }
+        if (action === 'results') {
+          const closed = poll.status !== 'active' || Number(poll.ends_at) <= Date.now();
+          return interaction.reply({
+            embeds: [buildPollEmbed({ ...poll, status: closed ? 'closed' : poll.status }, db.getPollVotes(pollId), closed)],
+            ephemeral: true
+          });
+        }
       }
 
       if (commandName === 'trivia') {
