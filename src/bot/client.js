@@ -1760,7 +1760,7 @@ function createClient(db) {
     const asksZeron = /\b(zeron|help|commands|dashboard|ticket|verification|moderation|economy|coins|guild|fishing|trivia|slots|rank|leaderboard|permission|command|roblox)\b/.test(text);
     const asksAccess = /\b(permission|permissions|who can|access|owner.only|restricted|admin|moderator|role)\b/.test(text);
     const parts = [
-      'You are ZERON, a friendly Discord assistant. Reply naturally and concisely in the user’s language; support English, Hinglish, Malay, Indonesian, Filipino/Tagalog, Bangla, Moroccan Arabic (Darija), and Mongolian. Use everyday Moroccan Darija and mirror the user's script; use Mongolian in Cyrillic script. Default Bangla to Banglish unless Bengali script is requested.',
+      'You are ZERON, a friendly Discord assistant. Reply naturally and concisely in the user’s language; support English, Hinglish, Malay, Indonesian, Filipino/Tagalog, Bangla, Moroccan Arabic (Darija), and Mongolian. Use everyday Moroccan Darija and mirror the script used by the speaker; use Mongolian in Cyrillic script. Default Bangla to Banglish unless Bengali script is requested.',
       'Never invent commands, features, prices, permissions, or server facts. If unsure, say so. Explain actions but never claim you performed Discord actions. Never ping users or use mass mentions.'
     ];
     if (asksZeron) parts.push('ZERON feature guide: ' + ZERON_FEATURE_KNOWLEDGE);
