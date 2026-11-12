@@ -1511,6 +1511,24 @@ function createClient(db) {
     }
   }
 
+  // Roblox: fetch the current headshot by user ID instead of relying on the
+  // avatar URL saved when the account was first linked.
+  async function fetchRobloxAvatar(robloxId) {
+    try {
+      const thumb = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${encodeURIComponent(robloxId)}&size=150x150&format=Png&isCircular=true`, {
+        signal: AbortSignal.timeout(5000),
+        cache: 'no-store'
+      });
+      if (!thumb.ok) return null;
+      const thumbData = ((await thumb.json()).data || [])[0];
+      if (!thumbData || thumbData.state !== 'Completed' || !thumbData.imageUrl) return null;
+      // A changing query string also helps Discord avoid reusing a cached image.
+      return `${thumbData.imageUrl}${thumbData.imageUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
+    } catch {
+      return null;
+    }
+  }
+
   // Roblox: look up a username and its headshot through Roblox's public APIs.
   async function fetchRobloxUser(username) {
     const res = await fetch('https://users.roblox.com/v1/usernames/users', {
@@ -1521,9 +1539,8 @@ function createClient(db) {
     if (!res.ok) throw new Error('Roblox lookup failed');
     const found = ((await res.json()).data || [])[0];
     if (!found) return null;
-    const thumb = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${found.id}&size=150x150&format=Png&isCircular=true`);
-    const thumbData = thumb.ok ? ((await thumb.json()).data || [])[0] : null;
-    return { robloxId: String(found.id), username: found.name, displayName: found.displayName, avatarUrl: thumbData ? thumbData.imageUrl : null };
+    const avatarUrl = await fetchRobloxAvatar(found.id);
+    return { robloxId: String(found.id), username: found.name, displayName: found.displayName, avatarUrl };
   }
 
   // Vault alerts: copies of other servers' posts land in a watched channel. Each vault rule has its own trigger and role.
@@ -4296,12 +4313,16 @@ ${failed} could not receive coins (balance limit).` : ''}`;
           const link = robloxLink;
           const roblox = new djs.ContainerBuilder().setAccentColor(accent);
           if (link) {
-            const details = await fetchRobloxDetails(link.roblox_id);
+            const [details, latestAvatarUrl] = await Promise.all([
+              fetchRobloxDetails(link.roblox_id),
+              fetchRobloxAvatar(link.roblox_id)
+            ]);
+            const avatarUrl = latestAvatarUrl || link.avatar_url;
             const headline = `### Roblox Information\n**[${link.display_name || link.username}](https://www.roblox.com/users/${link.roblox_id}/profile)**\n@${link.username}${details && details.created ? `\nAccount Created: <t:${Math.floor(Date.parse(details.created) / 1000)}:F>` : ''}`;
-            if (link.avatar_url) {
+            if (avatarUrl) {
               roblox.addSectionComponents(new djs.SectionBuilder()
                 .addTextDisplayComponents(new djs.TextDisplayBuilder().setContent(headline))
-                .setThumbnailAccessory(new djs.ThumbnailBuilder().setURL(link.avatar_url)));
+                .setThumbnailAccessory(new djs.ThumbnailBuilder().setURL(avatarUrl)));
             } else {
               roblox.addTextDisplayComponents(new djs.TextDisplayBuilder().setContent(headline));
             }
