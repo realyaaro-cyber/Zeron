@@ -650,6 +650,7 @@ const LEGACY_V2_EXCLUSIONS = new Set([
   'component:nx-verify-approve',
   'component:nx-verify-reject',
   'component:nx-verify-form',
+  'component:zeron_guild_join_select', // Guild join confirmations and errors stay as plain Discord messages.
 ]);
 
 function isAccessRestrictionPayload(payload) {
