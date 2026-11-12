@@ -457,11 +457,11 @@ async function replyVerificationNotice(interaction, content) {
   timer.unref?.();
 }
 
-async function sendVerificationDm(member, content) {
-  const message = await member.send({ content });
-  const timer = setTimeout(() => message.delete().catch(() => {}), 5 * 60 * 1000);
-  timer.unref?.();
-  return message;
+async function sendVerificationDm(member, card) {
+  return member.send({
+    components: [card],
+    flags: require('discord.js').MessageFlags.IsComponentsV2
+  });
 }
 
 function verifyPanelEmbed(color, cfg) {
@@ -3138,10 +3138,13 @@ const fishWaitMessages = new Map();
       await interaction.update(toV2Payload({ embeds: [updated], components: [] }));
 
       if (target) {
-        const dmContent = approve
-          ? '✅ **Verification approved**\n' + verifyText(cfg.approveMessage, VERIFY_DEFAULTS.approve, guild.name)
-          : '❌ **Verification rejected**\n' + verifyText(cfg.rejectMessage, VERIFY_DEFAULTS.reject, guild.name);
-        sendVerificationDm(target, dmContent).catch(() => {});
+        const dmCard = textCard(
+          approve ? '✅ Verification approved' : '❌ Verification rejected',
+          approve ? verifyText(cfg.approveMessage, VERIFY_DEFAULTS.approve, guild.name) : verifyText(cfg.rejectMessage, VERIFY_DEFAULTS.reject, guild.name),
+          guild.name,
+          approve ? 0x22c55e : 0xef4444
+        );
+        sendVerificationDm(target, dmCard).catch(() => {});
       }
       return null;
     }
