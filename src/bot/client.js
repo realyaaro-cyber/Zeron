@@ -1,5 +1,5 @@
 const {
-  Client, GatewayIntentBits, Partials, Events, EmbedBuilder, AttachmentBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder
+  Client, GatewayIntentBits, Partials, Events, EmbedBuilder, AttachmentBuilder, PermissionFlagsBits, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder
 } = require('discord.js');
 const { getPresence, applyPresence } = require('./presence');
 const { createGiveawayService, handleGiveawayEnter } = require('./giveaways');
@@ -451,8 +451,13 @@ function verifyText(custom, fallback, serverName) {
 
 // Verification notices are plain, private, one-time messages removed after five minutes.
 async function replyVerificationNotice(interaction, content) {
-  const reply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
-  await reply({ content, ephemeral: true });
+  if (interaction.deferred || interaction.replied) {
+    const editReply = interaction.__v2OriginalMethods?.editReply || interaction.editReply.bind(interaction);
+    await editReply({ content });
+  } else {
+    const reply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+    await reply({ content, flags: MessageFlags.Ephemeral });
+  }
   const timer = setTimeout(() => interaction.deleteReply().catch(() => {}), 5 * 60 * 1000);
   timer.unref?.();
 }
@@ -3068,6 +3073,8 @@ const fishWaitMessages = new Map();
     }
 
     if (interaction.isModalSubmit() && interaction.customId.startsWith('nx-verify-form:')) {
+      // Acknowledge the modal immediately so review-channel delivery cannot expire the interaction.
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const guildId = interaction.customId.split(':')[1];
       const cfg = db.getVerificationConfig(guildId);
       if (!cfg.enabled) return replyVerificationNotice(interaction, 'Verification is not open right now.');
