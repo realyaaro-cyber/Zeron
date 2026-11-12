@@ -3139,8 +3139,8 @@ const fishWaitMessages = new Map();
 
       if (target) {
         const dmContent = approve
-          ? '✅ **Verification approved**\\n' + verifyText(cfg.approveMessage, VERIFY_DEFAULTS.approve, guild.name)
-          : '❌ **Verification rejected**\\n' + verifyText(cfg.rejectMessage, VERIFY_DEFAULTS.reject, guild.name);
+          ? '✅ **Verification approved**\n' + verifyText(cfg.approveMessage, VERIFY_DEFAULTS.approve, guild.name)
+          : '❌ **Verification rejected**\n' + verifyText(cfg.rejectMessage, VERIFY_DEFAULTS.reject, guild.name);
         sendVerificationDm(target, dmContent).catch(() => {});
       }
       return null;
