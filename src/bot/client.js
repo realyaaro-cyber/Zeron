@@ -449,6 +449,21 @@ function verifyText(custom, fallback, serverName) {
   return (custom && custom.trim() ? custom.trim() : fallback).replace(/\{server\}/g, serverName);
 }
 
+// Verification notices are plain, private, one-time messages removed after five minutes.
+async function replyVerificationNotice(interaction, content) {
+  const reply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+  await reply({ content, ephemeral: true });
+  const timer = setTimeout(() => interaction.deleteReply().catch(() => {}), 5 * 60 * 1000);
+  timer.unref?.();
+}
+
+async function sendVerificationDm(member, content) {
+  const message = await member.send({ content });
+  const timer = setTimeout(() => message.delete().catch(() => {}), 5 * 60 * 1000);
+  timer.unref?.();
+  return message;
+}
+
 function verifyPanelEmbed(color, cfg) {
   return new EmbedBuilder()
     .setColor(color)
@@ -626,6 +641,10 @@ const LEGACY_V2_EXCLUSIONS = new Set([
   'command:poll', // Poll command replies use legacy payloads because poll results contain embeds.
   'command:rank', // Rank replies are image attachments; do not wrap file-only replies in an empty V2 container.
   'component:nx-poll-vote', // Poll vote updates edit legacy embeds and button rows.
+  'component:nx-verify-start',
+  'component:nx-verify-approve',
+  'component:nx-verify-reject',
+  'component:nx-verify-form',
 ]);
 
 function isAccessRestrictionPayload(payload) {
@@ -3036,48 +3055,26 @@ const fishWaitMessages = new Map();
     if (interaction.isButton() && interaction.customId.startsWith('nx-verify-start:')) {
       const guildId = interaction.customId.split(':')[1];
       const cfg = db.getVerificationConfig(guildId);
-      if (!cfg.enabled || cfg.questions.length === 0) {
-        return interaction.reply({ content: 'Verification is not open right now.', ephemeral: true });
-      }
-      if (cfg.verifiedRoleId && interaction.member && interaction.member.roles.cache.has(cfg.verifiedRoleId)) {
-        return interaction.reply({ content: 'You are already verified.', ephemeral: true });
-      }
-      if (db.hasPendingVerification(guildId, interaction.user.id)) {
-        return interaction.reply({ content: 'Your application is already waiting for review.', ephemeral: true });
-      }
+      if (!cfg.enabled || cfg.questions.length === 0) return replyVerificationNotice(interaction, 'Verification is not open right now.');
+      if (cfg.verifiedRoleId && interaction.member && interaction.member.roles.cache.has(cfg.verifiedRoleId)) return replyVerificationNotice(interaction, 'You are already verified.');
+      if (db.hasPendingVerification(guildId, interaction.user.id)) return replyVerificationNotice(interaction, 'Your application is already waiting for review.');
       const modal = new ModalBuilder().setCustomId('nx-verify-form:' + guildId).setTitle((cfg.panelTitle && cfg.panelTitle.trim() ? cfg.panelTitle.trim() : VERIFY_DEFAULTS.title).slice(0, 45));
-      modal.addComponents(
-        ...cfg.questions.slice(0, 5).map((question, index) =>
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId('q' + index)
-              .setLabel(question.slice(0, 45))
-              .setStyle(TextInputStyle.Short)
-              .setMaxLength(500)
-              .setRequired(true)
-          )
+      modal.addComponents(...cfg.questions.slice(0, 5).map((question, index) =>
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('q' + index).setLabel(question.slice(0, 45)).setStyle(TextInputStyle.Short).setMaxLength(500).setRequired(true)
         )
-      );
+      ));
       return interaction.showModal(modal);
     }
 
     if (interaction.isModalSubmit() && interaction.customId.startsWith('nx-verify-form:')) {
       const guildId = interaction.customId.split(':')[1];
       const cfg = db.getVerificationConfig(guildId);
-      if (!cfg.enabled) {
-        return interaction.reply({ content: 'Verification is not open right now.', ephemeral: true });
-      }
-      if (db.hasPendingVerification(guildId, interaction.user.id)) {
-        return interaction.reply({ content: 'Your application is already waiting for review.', ephemeral: true });
-      }
-      const answers = cfg.questions.slice(0, 5).map((question, index) => ({
-        question,
-        answer: interaction.fields.getTextInputValue('q' + index).trim()
-      }));
+      if (!cfg.enabled) return replyVerificationNotice(interaction, 'Verification is not open right now.');
+      if (db.hasPendingVerification(guildId, interaction.user.id)) return replyVerificationNotice(interaction, 'Your application is already waiting for review.');
+      const answers = cfg.questions.slice(0, 5).map((question, index) => ({ question, answer: interaction.fields.getTextInputValue('q' + index).trim() }));
       const reviewChannel = interaction.guild ? interaction.guild.channels.cache.get(cfg.reviewChannelId) : null;
-      if (!reviewChannel) {
-        return interaction.reply({ content: 'The review channel is not set. Ask staff to set it in the dashboard.', ephemeral: true });
-      }
+      if (!reviewChannel) return replyVerificationNotice(interaction, 'The review channel is not set. Ask staff to set it in the dashboard.');
       const appId = db.createVerificationApplication(guildId, interaction.user.id, answers);
       const embed = new EmbedBuilder()
         .setColor(db.accentColor(guildId))
@@ -3091,14 +3088,10 @@ const fishWaitMessages = new Map();
       } catch (error) {
         console.error('Verification review message delivery failed:', error.message);
         db.failVerificationApplication(appId);
-        return interaction.reply({
-          content: 'ZERON could not send your application to the staff review channel. Your application was not submitted. Please try again later or contact a server staff member.',
-          ephemeral: true
-        });
+        return replyVerificationNotice(interaction, 'ZERON could not send your application to the staff review channel. Your application was not submitted. Please try again later or contact a server staff member.');
       }
       db.setVerificationReviewMessage(appId, message.id);
-      const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
-      return sendPlainReply({ content: 'Your application was sent to the staff. You will get a DM when it is reviewed.', ephemeral: true });
+      return replyVerificationNotice(interaction, 'Your application was sent to the staff. You will get a DM when it is reviewed.');
     }
 
     if (interaction.isButton() && (interaction.customId.startsWith('nx-verify-approve:') || interaction.customId.startsWith('nx-verify-reject:'))) {
@@ -3106,56 +3099,49 @@ const fishWaitMessages = new Map();
       const approve = prefix === 'nx-verify-approve';
       const reviewer = interaction.member;
       if (!reviewer || !(reviewer.permissions.has(PermissionFlagsBits.ManageGuild) || reviewer.permissions.has(PermissionFlagsBits.ManageRoles))) {
-        return interaction.reply({ content: 'Only staff with Manage Server or Manage Roles can review applications.', ephemeral: true });
+        return replyVerificationNotice(interaction, 'Only staff with Manage Server or Manage Roles can review applications.');
       }
       const app = db.getVerificationApplication(Number(appIdText));
-      if (!app || app.status !== 'pending') {
-        return interaction.reply({ content: 'This application was already reviewed.', ephemeral: true });
-      }
+      if (!app || app.status !== 'pending') return replyVerificationNotice(interaction, 'This application was already reviewed.');
       const guild = interaction.guild;
       const cfg = db.getVerificationConfig(app.guild_id);
       const target = await guild.members.fetch(app.user_id).catch(() => null);
 
       if (approve) {
-        if (!target) {
-          return interaction.reply({ content: 'That member has left the server. Reject the application instead.', ephemeral: true });
-        }
+        if (!target) return replyVerificationNotice(interaction, 'That member has left the server. Reject the application instead.');
         const me = guild.members.me;
         const verified = cfg.verifiedRoleId ? guild.roles.cache.get(cfg.verifiedRoleId) : null;
         if (!verified || !me || !me.permissions.has(PermissionFlagsBits.ManageRoles) || verified.position >= me.roles.highest.position) {
-          return interaction.reply({ content: 'ZERON cannot give the Verified role. Check the role and ZERON\'s role position.', ephemeral: true });
+          return replyVerificationNotice(interaction, 'ZERON cannot give the Verified role. Check the role and ZERON\'s role position.');
         }
         try {
-          if (cfg.unverifiedRoleId && target.roles.cache.has(cfg.unverifiedRoleId)) {
-            await target.roles.remove(cfg.unverifiedRoleId, 'Verification approved');
-          }
+          if (cfg.unverifiedRoleId && target.roles.cache.has(cfg.unverifiedRoleId)) await target.roles.remove(cfg.unverifiedRoleId, 'Verification approved');
           await target.roles.add(verified, 'Verification approved');
         } catch (error) {
           console.error('Verification roles failed:', error.message);
-          return interaction.reply({ content: 'Could not update roles: ' + error.message, ephemeral: true });
+          return replyVerificationNotice(interaction, 'Could not update roles: ' + error.message);
         }
       }
 
       if (!db.decideVerificationApplication(app.id, approve ? 'approved' : 'rejected', interaction.user.id)) {
-        return interaction.reply({ content: 'This application was already reviewed.', ephemeral: true });
+        return replyVerificationNotice(interaction, 'This application was already reviewed.');
       }
 
-      const base = interaction.message.embeds[0] ? EmbedBuilder.from(interaction.message.embeds[0]) : new EmbedBuilder();
-      const updated = base
+      // Rebuild the persistent V2 review card from saved data, with exactly one decision field.
+      const updated = new EmbedBuilder()
         .setColor(approve ? 0x22c55e : 0xef4444)
-        .addFields({ name: approve ? 'Approved' : 'Rejected', value: 'By <@' + interaction.user.id + '>' });
-      await interaction.update({ embeds: [updated], components: [] });
+        .setTitle('📝 Verification application #' + app.id)
+        .setDescription('Applicant: <@' + app.user_id + '>')
+        .addFields(app.answers.map(item => ({ name: String(item.question || 'Question').slice(0, 256), value: String(item.answer || '-').slice(0, 1024) })))
+        .addFields({ name: approve ? 'Approved' : 'Rejected', value: 'By <@' + interaction.user.id + '>' })
+        .setFooter({ text: 'This application has been reviewed.' });
+      await interaction.update(toV2Payload({ embeds: [updated], components: [] }));
 
       if (target) {
-        target.send({
-          components: [textCard(
-            approve ? '✅ Verification approved' : '❌ Verification rejected',
-            approve ? verifyText(cfg.approveMessage, VERIFY_DEFAULTS.approve, guild.name) : verifyText(cfg.rejectMessage, VERIFY_DEFAULTS.reject, guild.name),
-            guild.name,
-            approve ? 0x22c55e : 0xef4444
-          )],
-          flags: require('discord.js').MessageFlags.IsComponentsV2
-        }).catch(() => {});
+        const dmContent = approve
+          ? '✅ **Verification approved**\\n' + verifyText(cfg.approveMessage, VERIFY_DEFAULTS.approve, guild.name)
+          : '❌ **Verification rejected**\\n' + verifyText(cfg.rejectMessage, VERIFY_DEFAULTS.reject, guild.name);
+        sendVerificationDm(target, dmContent).catch(() => {});
       }
       return null;
     }
