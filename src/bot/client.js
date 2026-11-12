@@ -2453,7 +2453,7 @@ const fishWaitMessages = new Map();
             const ago = minutes < 60 ? `${minutes}m` : `${Math.round(minutes / 60)}h`;
             return `💤 **${user ? user.username : 'That member'}** is AFK: ${row.reason} (${ago} ago)`;
           });
-          await message.reply(toV2Payload({ content: lines.join('\n'), allowedMentions: { repliedUser: false, parse: [] } })).catch(() => {});
+          await message.reply({ content: lines.join('\n'), allowedMentions: { repliedUser: false, parse: [] } }).catch(() => {});
         }
       }
     } catch (error) {
