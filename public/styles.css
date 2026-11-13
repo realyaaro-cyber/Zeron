@@ -2506,3 +2506,45 @@ label:has(> #ann-embed) {
   cursor: pointer;
 }
 
+/* ===== ZERON quality pass · mobile, accessibility, and worst-case content ===== */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid #8bd3ff;
+  outline-offset: 3px;
+}
+:where(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+:where(.card, .panel, .field, .stat, .quick, .nav, .side-server, .profile) {
+  min-width: 0;
+}
+:where(.card, .panel, .stat, .quick, .table td, .table th, .role-row, .ov-feed-row) {
+  overflow-wrap: anywhere;
+}
+:where(.stat strong, .table .number, .count, .badge, .pill, time, .side-count) {
+  font-variant-numeric: tabular-nums;
+}
+:where(.btn, .quick, .nav, .nx-results button) {
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active, .quick:active, .nav:active {
+  transform: scale(.985);
+}
+@media (max-width: 720px) {
+  body { min-height: 100dvh; }
+  .main, .content, .welcome-row, .section-head { min-width: 0; }
+  .welcome-row { flex-wrap: wrap; }
+  .welcome-row > * { min-width: 0; max-width: 100%; }
+  .table-wrap { overscroll-behavior-x: contain; }
+  .bottom-bar { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .sidebar { padding-bottom: max(22px, env(safe-area-inset-bottom, 0px)); }
+  .field input, .field select, .field textarea, .guild-select { font-size: 16px; }
+}
+@media (max-width: 380px) {
+  .stat-grid { grid-template-columns: minmax(0, 1fr); }
+  .top-actions { min-width: 0; }
+  .status { max-width: 94px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .content { animation: none !important; }
+}
+/* ===== END ZERON quality pass ===== */
