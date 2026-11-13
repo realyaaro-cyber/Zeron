@@ -557,8 +557,7 @@ return;
   const cards=systems.map(x=>`<button class="sys-card card" data-page="${x.page}"><div class="sys-top"><span class="sys-icon">${x.icon}</span><span class="sys-pill ${x.state===true?'on':''}">${escapeHtml(x.status)}</span></div><strong>${escapeHtml(x.name)}</strong><small>${escapeHtml(x.desc)}</small><span class="sys-open">Open →</span></button>`).join('');
 
   const st=await api(`/api/guild/${currentGuild}/overview-stats`).catch(()=>null);
-  const layoutPreview=new URLSearchParams(location.search).get('overview-layout')==='split';
-  content.classList.toggle('ov-layout-split-preview',layoutPreview);
+  content.classList.add('ov-layout-split-preview');
   content.innerHTML=`${ovHealthHtml(st)}
   <div class="section-head"><div><h3>Systems</h3><p>Tap a system to configure it.</p></div></div>
   <div class="sys-grid">${cards}</div>`;
