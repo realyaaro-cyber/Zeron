@@ -2794,3 +2794,54 @@ label:has(> #ann-embed) {
   .btn { transition: none !important; }
 }
 
+/* ===== Step 6: optional split overview layout prototype ===== */
+#content.ov-layout-split-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(250px, .8fr);
+  align-items: start;
+  gap: 0 18px;
+}
+#content.ov-layout-split-preview > .ov-health {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  margin-bottom: 0;
+}
+#content.ov-layout-split-preview > .ov-quick-section {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+#content.ov-layout-split-preview > .ov-feed-section {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+}
+#content.ov-layout-split-preview > .ov-quick-section .section-head,
+#content.ov-layout-split-preview > .ov-feed-section .section-head {
+  margin-top: 0;
+}
+#content.ov-layout-split-preview .ov-quick {
+  grid-template-columns: 1fr;
+}
+@media (max-width: 900px) {
+  #content.ov-layout-split-preview {
+    display: block;
+  }
+  #content.ov-layout-split-preview > .ov-health {
+    margin-bottom: 18px;
+  }
+  #content.ov-layout-split-preview > .ov-quick-section,
+  #content.ov-layout-split-preview > .ov-feed-section {
+    margin-bottom: 18px;
+  }
+  #content.ov-layout-split-preview .ov-quick {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 420px) {
+  #content.ov-layout-split-preview .ov-quick {
+    grid-template-columns: 1fr;
+  }
+}
+/* ===== End Step 6 prototype ===== */
+
