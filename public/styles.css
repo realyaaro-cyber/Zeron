@@ -2454,7 +2454,11 @@ footer { border-top-color: #a8d4ff12; color: #7388a3; }
     width: 100% !important;
   }
   .sidebar .side-items {
-    display: block !important;
+    display: grid !important;
+    grid-template-rows: 1fr;
+  }
+  .sidebar .side-group.collapsed .side-items {
+    grid-template-rows: 0fr;
   }
   .sidebar .nav {
     width: 100% !important;
