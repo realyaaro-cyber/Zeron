@@ -1297,12 +1297,40 @@ function createDashboard({ db, client }) {
   app.get('/guilds', (req, res) => {
     const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const day = t => { const d = new Date(t); return Number.isNaN(d.getTime()) ? '—' : d.toISOString().slice(0, 10); };
-    const guilds = db.listGlobalGuilds();
-    const wars = db.listGlobalWars(10);
+    const stressPreviewEnabled = process.env.ZERON_GUILD_STRESS_PREVIEW === 'true' && req.query.stress === '1';
+    const liveGuilds = db.listGlobalGuilds();
+    const liveWars = db.listGlobalWars(10);
+    const guilds = stressPreviewEnabled ? [
+      ...liveGuilds,
+      {
+        name: 'LEGENDARY-' + 'WIDE-'.repeat(24) + 'GUILD',
+        level: 999999,
+        xp: 987654321,
+        member_count: 25,
+        wins: 99999,
+        created_at: Date.now(),
+        emblem: ''
+      },
+      { name: 'Guild with emoji 🌌⚔️ 日本語 العربية বাংলা', level: 2, xp: 0, member_count: 0, wins: 0, created_at: null },
+      { name: 'Missing Stats Test Guild', level: null, xp: null, member_count: null, wins: null, created_at: 'invalid-date' }
+    ] : liveGuilds;
+    const wars = stressPreviewEnabled ? [
+      ...liveWars,
+      {
+        status: 'active',
+        winner_id: null,
+        challenger_id: 'stress-a',
+        opponent_id: 'stress-b',
+        challenger_name: 'THE-' + 'EXTREMELY-LONG-CHALLENGER-NAME-'.repeat(4),
+        opponent_name: 'THE-OTHER-VERY-LONG-OPPONENT-NAME-'.repeat(4),
+        challenger_score: 999999,
+        opponent_score: 888888
+      }
+    ] : liveWars;
     const totalMembers = guilds.reduce((n, g) => n + (Number(g.member_count) || 0), 0);
     const totalWins = guilds.reduce((n, g) => n + (Number(g.wins) || 0), 0);
     const topGuild = guilds[0] || null;
-    const guildRows = guilds.map((g, i) => `<tr data-guild-name="${esc(g.name).toLowerCase()}"><td><span class="rank rank-${i + 1}">${i + 1}</span></td><td><div class="guild-name"><span class="guild-emblem">♜</span><strong>${esc(g.name)}</strong></div></td><td><span class="level-pill">LVL ${Number(g.level) || 1}</span></td><td><strong>${(Number(g.xp) || 0).toLocaleString('en-US')}</strong><div class="xp-track"><i style="width:${Math.max(0, Math.min(100, (Number(g.xp) || 0) % 100))}%"></i></div></td><td>${Number(g.member_count) || 0}<span class="muted"> / 25</span></td><td>${Number(g.wins) || 0}</td><td class="muted">${day(g.created_at)}</td></tr>`).join('')
+    const guildRows = guilds.map((g, i) => `<tr data-guild-name="${esc(g.name).toLowerCase()}"><td><span class="rank rank-${i + 1}">${i + 1}</span></td><td><div class="guild-name"><span class="guild-emblem">${g.emblem ? esc(g.emblem) : '♜'}</span><strong>${esc(g.name)}</strong></div></td><td><span class="level-pill">LVL ${Number(g.level) || 1}</span></td><td><strong>${(Number(g.xp) || 0).toLocaleString('en-US')}</strong><div class="xp-track"><i style="width:${Math.max(0, Math.min(100, (Number(g.xp) || 0) % 100))}%"></i></div></td><td>${Number(g.member_count) || 0}<span class="muted"> / 25</span></td><td>${Number(g.wins) || 0}</td><td class="muted">${day(g.created_at)}</td></tr>`).join('')
       || '<tr><td colspan="7" class="empty-cell">No guilds yet. Use <b>/guild</b> in any server to create one.</td></tr>';
     const warCards = wars.map(w => {
       const winner = w.winner_id == null ? 'Awaiting result' : (String(w.winner_id) === String(w.challenger_id) ? w.challenger_name : w.opponent_name);
@@ -1369,7 +1397,7 @@ tbody tr:hover{background:#5bbfff0b}
 @media(prefers-reduced-motion:reduce){
  *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }</style></head><body><div class="shell"><header class="topbar"><div class="brand"><span class="brand-mark">♜</span><span>ZERON<small>GUILD COMMAND</small></span></div><a class="top-link" href="/">← CONTROL CENTER</a></header>
-<section class="hero"><div class="eyebrow">THE GUILD NETWORK</div><h1>Strength is built <span style="color:#64d8ff">together.</span></h1><p>Discover the guilds shaping the network, follow their rise, and track the latest rivalries across ZERON.</p><div class="hero-meta"><span class="meta-chip">✦ Live network overview</span><span class="meta-chip">⚔ Guild rankings</span><span class="meta-chip">♜ War records</span></div></section>
+<section class="hero"><div class="eyebrow">THE GUILD NETWORK</div><h1>Strength is built <span style="color:#64d8ff">together.</span></h1><p>Discover the guilds shaping the network, follow their rise, and track the latest rivalries across ZERON.</p><div class="hero-meta"><span class="meta-chip">✦ Live network overview</span><span class="meta-chip">⚔ Guild rankings</span><span class="meta-chip">♜ War records</span>${stressPreviewEnabled ? '<span class="meta-chip" style="border-color:#f6c66b55;color:#f6c66b">⚠ STRESS PREVIEW · SAMPLE DATA</span>' : ''}</div></section>
 <section class="stats"><article class="stat"><span class="stat-icon">♜</span><div class="stat-label">Guilds formed</div><div class="stat-value">${guilds.length.toLocaleString('en-US')}</div><div class="stat-note">Across the ZERON network</div></article><article class="stat"><span class="stat-icon">♟</span><div class="stat-label">Guild members</div><div class="stat-value">${totalMembers.toLocaleString('en-US')}</div><div class="stat-note">Combined membership</div></article><article class="stat"><span class="stat-icon">🏆</span><div class="stat-label">War victories</div><div class="stat-value">${totalWins.toLocaleString('en-US')}</div><div class="stat-note">Recorded guild wins</div></article><article class="stat"><span class="stat-icon">✦</span><div class="stat-label">Top guild</div><div class="stat-value" style="font-size:18px;overflow-wrap:anywhere">${topGuild ? esc(topGuild.name) : '—'}</div><div class="stat-note">${topGuild ? `Level ${Number(topGuild.level) || 1} · ${(Number(topGuild.xp) || 0).toLocaleString('en-US')} XP` : 'Be the first to rise'}</div></article></section>
 <section><div class="section-head"><div><div class="section-kicker">THE HALL OF HONOR</div><h2>Guild leaderboard</h2><div class="section-sub">Rankings, progression, and strength across the network.</div></div><input id="guild-search" class="search" type="search" placeholder="Search guilds…" aria-label="Search guilds"></div><div class="table-wrap"><table><thead><tr><th>Rank</th><th>Guild</th><th>Level</th><th>Total XP</th><th>Members</th><th>Wins</th><th>Founded</th></tr></thead><tbody id="guild-rows">${guildRows}</tbody></table></div></section>
 <section><div class="section-head"><div><div class="section-kicker">RECENT CONFLICTS</div><h2>Latest guild wars</h2><div class="section-sub">The latest recorded matchups and outcomes.</div></div></div><div class="war-grid">${warCards}</div><p class="section-sub" style="margin-top:12px">Fishing wars count catches by members across all servers where ZERON is installed.</p></section>
