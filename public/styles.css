@@ -2798,13 +2798,16 @@ label:has(> #ann-embed) {
 #content.ov-layout-split-preview {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(250px, .8fr);
+  grid-auto-rows: min-content;
   align-items: start;
-  gap: 0 18px;
+  gap: 18px;
 }
 #content.ov-layout-split-preview > .ov-health {
   grid-column: 1;
-  grid-row: 1 / span 2;
-  margin-bottom: 0;
+  grid-row: 1;
+  align-self: start;
+  min-width: 0;
+  margin: 0;
 }
 #content.ov-layout-split-preview > .ov-quick-section {
   grid-column: 2;
