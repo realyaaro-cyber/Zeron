@@ -557,6 +557,8 @@ return;
   const cards=systems.map(x=>`<button class="sys-card card" data-page="${x.page}"><div class="sys-top"><span class="sys-icon">${x.icon}</span><span class="sys-pill ${x.state===true?'on':''}">${escapeHtml(x.status)}</span></div><strong>${escapeHtml(x.name)}</strong><small>${escapeHtml(x.desc)}</small><span class="sys-open">Open →</span></button>`).join('');
 
   const st=await api(`/api/guild/${currentGuild}/overview-stats`).catch(()=>null);
+  const layoutPreview=new URLSearchParams(location.search).get('overview-layout')==='split';
+  content.classList.toggle('ov-layout-split-preview',layoutPreview);
   content.innerHTML=`${ovHealthHtml(st)}
   <div class="section-head"><div><h3>Systems</h3><p>Tap a system to configure it.</p></div></div>
   <div class="sys-grid">${cards}</div>`;
@@ -588,6 +590,7 @@ function ovHealthHtml(st){
     <div class="ov-chart-head"><h3>Messages, last 7 days</h3></div>
     <div class="ov-chart">${bars}</div>
   </div>
+  <div class="ov-quick-section">
   <div class="section-head"><div><h3>Quick actions</h3><p>Jump straight to the tool you need.</p></div></div>
   <div class="ov-quick">
     <button class="btn primary ov-action" data-page="giveaways"><span class="ov-act-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M5 12v9h14v-9"/><path d="M7.5 8a2.5 2.5 0 1 1 4.5-3c0 1.5-4.5 3-4.5 3z"/><path d="M16.5 8a2.5 2.5 0 1 0-4.5-3c0 1.5 4.5 3 4.5 3z"/></svg></span><span>New giveaway</span></button>
@@ -595,8 +598,11 @@ function ovHealthHtml(st){
     <button class="btn ov-action" data-page="tickets"><span class="ov-act-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8a2 2 0 0 0 0 4v4h18v-4a2 2 0 0 0 0-4V4H3z"/><path d="M14 4v16"/></svg></span><span>Tickets</span></button>
     <button class="btn ov-action" data-page="announcements"><span class="ov-act-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10v4h4l8 4V6L7 10z"/><path d="M19 9a4 4 0 0 1 0 6"/></svg></span><span>Announce</span></button>
   </div>
+  </div>
+  <div class="ov-feed-section">
   <div class="section-head"><div><h3>Recent activity</h3><p>Latest moderation actions in this server.</p></div></div>
-  <div class="ov-feed card" id="ov-feed"><p class="rw-sub">Loading…</p></div>`;
+  <div class="ov-feed card" id="ov-feed"><p class="rw-sub">Loading…</p></div>
+  </div>`;
 }
 
 function renderServers(){
