@@ -2797,52 +2797,55 @@ label:has(> #ann-embed) {
 /* ===== Step 6: optional split overview layout prototype ===== */
 #content.ov-layout-split-preview {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(250px, .8fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: min-content;
   align-items: start;
   gap: 18px;
 }
 #content.ov-layout-split-preview > .ov-health {
-  grid-column: 1;
+  grid-column: 1 / -1;
   grid-row: 1;
-  align-self: start;
   min-width: 0;
   margin: 0;
 }
 #content.ov-layout-split-preview > .ov-quick-section {
-  grid-column: 2;
-  grid-row: 1;
+  grid-column: 1;
+  grid-row: 2;
   min-width: 0;
-}
-#content.ov-layout-split-preview > .section-head,
-#content.ov-layout-split-preview > .sys-grid {
-  grid-column: 1 / -1;
 }
 #content.ov-layout-split-preview > .ov-feed-section {
   grid-column: 2;
   grid-row: 2;
   min-width: 0;
 }
+#content.ov-layout-split-preview > .section-head,
+#content.ov-layout-split-preview > .sys-grid {
+  grid-column: 1 / -1;
+}
 #content.ov-layout-split-preview > .ov-quick-section .section-head,
 #content.ov-layout-split-preview > .ov-feed-section .section-head {
   margin-top: 0;
 }
 #content.ov-layout-split-preview .ov-quick {
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+#content.ov-layout-split-preview > .ov-quick-section,
+#content.ov-layout-split-preview > .ov-feed-section {
+  min-width: 0;
+}
+#content.ov-layout-split-preview .ov-health,
+#content.ov-layout-split-preview .ov-feed {
+  width: 100%;
+  box-sizing: border-box;
 }
 @media (max-width: 900px) {
   #content.ov-layout-split-preview {
     display: block;
   }
-  #content.ov-layout-split-preview > .ov-health {
-    margin-bottom: 18px;
-  }
+  #content.ov-layout-split-preview > .ov-health,
   #content.ov-layout-split-preview > .ov-quick-section,
   #content.ov-layout-split-preview > .ov-feed-section {
     margin-bottom: 18px;
-  }
-  #content.ov-layout-split-preview .ov-quick {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 420px) {
