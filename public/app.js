@@ -1608,7 +1608,7 @@ function zeronIcon(key){
 }
 
 /* NEXORA: live bot status and installed servers on the public home */
-async async function nxFillPublicStats(){
+async function nxFillPublicStats(){
   try{
     const h=await api('/health');
     const bot=document.getElementById('stat-bot');
