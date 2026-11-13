@@ -1311,7 +1311,64 @@ function createDashboard({ db, client }) {
     }).join('') || '<div class="empty-state"><span>⚔</span><b>No battles recorded yet</b><small>Guild wars will appear here when they begin.</small></div>';
     res.type('html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#090d18"><title>ZERON · Guild Command</title><style>
 :root{color-scheme:dark;--bg:#090d18;--panel:#111827;--panel2:#151f31;--line:#26354c;--text:#f3f7ff;--muted:#8e9bb1;--cyan:#64d8ff;--violet:#9a83ff;--green:#57e2b0}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 12% -8%,#183b5b66,transparent 38%),radial-gradient(ellipse at 92% 0%,#39235a55,transparent 34%),var(--bg);color:var(--text);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}a{color:inherit}.shell{max-width:1180px;margin:auto;padding:0 24px 64px}.topbar{height:76px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff12}.brand{display:flex;align-items:center;gap:12px;font-weight:900;letter-spacing:2px}.brand-mark{width:38px;height:38px;display:grid;place-items:center;border:1px solid #64d8ff55;border-radius:12px;background:linear-gradient(145deg,#163a54,#251b48);color:var(--cyan);font-size:22px;box-shadow:0 0 26px #4fcfff18}.brand small{display:block;color:var(--muted);font-size:9px;letter-spacing:2.5px}.top-link{font-size:12px;color:var(--cyan);text-decoration:none;border:1px solid #64d8ff40;padding:9px 13px;border-radius:10px}.hero{position:relative;overflow:hidden;margin:30px 0 22px;padding:34px;border:1px solid #7bdcff26;border-radius:24px;background:linear-gradient(115deg,#13263aee,#17162cee 68%,#241b3bee);box-shadow:0 24px 70px #0005}.hero:after{content:'⚔';position:absolute;right:7%;top:50%;transform:translateY(-50%) rotate(-12deg);font-size:150px;color:#b8eaff0b;pointer-events:none}.eyebrow,.section-kicker{font-size:10px;font-weight:800;letter-spacing:2.4px;color:var(--cyan);text-transform:uppercase}.hero h1{font-size:clamp(30px,5vw,48px);line-height:1.05;margin:10px 0 9px;letter-spacing:-1.5px}.hero p{max-width:560px;margin:0;color:#aab8cb}.hero-meta{display:flex;gap:9px;flex-wrap:wrap;margin-top:22px}.meta-chip{padding:7px 11px;border-radius:99px;background:#ffffff0b;border:1px solid #ffffff16;color:#c6d5e8;font-size:11px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin:0 0 34px}.stat{padding:18px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(145deg,#141f30,#101725);min-width:0}.stat-label{font-size:10px;color:var(--muted);letter-spacing:1.3px;text-transform:uppercase}.stat-value{font-size:27px;font-weight:850;letter-spacing:-.7px;margin-top:5px}.stat-note{font-size:11px;color:#71829b;margin-top:2px}.stat-icon{float:right;color:var(--cyan);font-size:20px}.section-head{display:flex;align-items:end;justify-content:space-between;gap:14px;margin:34px 0 14px}.section-head h2{font-size:17px;margin:4px 0 0;letter-spacing:-.3px}.section-sub{font-size:12px;color:var(--muted)}.search{width:min(100%,270px);background:#111a29;border:1px solid var(--line);border-radius:11px;padding:10px 13px;color:var(--text);outline:none}.search:focus{border-color:#64d8ff99;box-shadow:0 0 0 3px #64d8ff15}.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:17px;background:#101725;box-shadow:0 18px 45px #0003}table{width:100%;border-collapse:collapse;min-width:740px}th{padding:14px 15px;text-align:left;background:#ffffff05;color:#8191aa;font-size:9px;letter-spacing:1.4px;text-transform:uppercase}td{padding:14px 15px;border-top:1px solid #ffffff0a;font-size:12px;white-space:nowrap}tbody tr:hover{background:#ffffff05}.rank{display:grid;place-items:center;width:27px;height:27px;border-radius:9px;background:#ffffff0a;color:#9eacc0;font-weight:800}.rank-1{background:#ffd66b1c;color:#ffd66b}.rank-2{background:#c8d7e51a;color:#c8d7e5}.rank-3{background:#d99a6a1c;color:#e8ad7c}.guild-name{display:flex;align-items:center;gap:10px}.guild-emblem,.war-crest{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:linear-gradient(145deg,#1b4056,#35234e);border:1px solid #72dfff33;color:var(--cyan);font-size:17px}.level-pill{padding:5px 8px;border-radius:7px;background:#8e7cff19;color:#b9aaff;font-size:10px;font-weight:800}.xp-track{width:80px;height:4px;border-radius:99px;background:#ffffff12;margin-top:6px;overflow:hidden}.xp-track i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--cyan),var(--violet))}.muted{color:var(--muted)}.empty-cell{text-align:center;padding:28px;color:var(--muted)}.war-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.war-card{border:1px solid var(--line);border-radius:16px;padding:17px;background:linear-gradient(145deg,#141f30,#101725)}.war-top{display:flex;justify-content:space-between;align-items:center}.war-kicker{font-size:9px;letter-spacing:1.5px;color:#7f91aa;font-weight:800}.war-status{font-size:9px;padding:5px 8px;border-radius:99px;background:#ffffff0d;color:#b9c6d8;text-transform:uppercase}.status-active,.status-ongoing{background:#57e2b018;color:#7df0c5}.status-completed,.status-finished{background:#64d8ff18;color:#8ce2ff}.war-versus{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin:18px 0}.war-side{display:flex;align-items:center;gap:8px;min-width:0}.war-side:last-child{flex-direction:row-reverse;text-align:right}.war-side strong{font-size:12px;overflow-wrap:anywhere}.war-score{font-size:23px;font-weight:900;white-space:nowrap}.war-score span{color:#60718a;padding:0 5px}.war-winner{border-top:1px solid #ffffff0d;padding-top:11px;color:var(--muted);font-size:11px}.war-winner b{color:var(--green)}.empty-state{grid-column:1/-1;display:grid;justify-items:center;gap:7px;padding:28px;border:1px dashed #33445d;border-radius:16px;color:var(--muted)}.empty-state span{font-size:25px;color:var(--cyan)}.empty-state b{color:#dbe7f5}.footer{margin-top:36px;padding-top:18px;border-top:1px solid #ffffff12;color:#65748b;font-size:11px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}@media(max-width:760px){.shell{padding:0 15px 42px}.hero{padding:25px 21px;margin-top:20px}.hero:after{right:-10px;font-size:100px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{padding:14px}.stat-value{font-size:23px}.section-head{align-items:stretch;flex-direction:column}.search{width:100%}.war-grid{grid-template-columns:1fr}.topbar{height:66px}}@media(prefers-reduced-motion:no-preference){.stat,.war-card,.table-wrap{transition:border-color .2s,transform .2s}.stat:hover,.war-card:hover{transform:translateY(-2px);border-color:#64d8ff66}}
-</style></head><body><div class="shell"><header class="topbar"><div class="brand"><span class="brand-mark">♜</span><span>ZERON<small>GUILD COMMAND</small></span></div><a class="top-link" href="/">← CONTROL CENTER</a></header>
+/* ZERON dashboard-aligned guild leaderboard refresh */
+:root{--bg:#090d18;--panel:#111b2b;--panel2:#162338;--line:#263b55;--text:#f3f7ff;--muted:#91a2ba;--cyan:#72d8ff;--violet:#a28cff;--green:#62e4b7}
+body{background:radial-gradient(ellipse at 80% 0%,#2876b522,transparent 38%),radial-gradient(ellipse at 0% 65%,#6550a318,transparent 36%),var(--bg)}
+.shell{max-width:1180px;padding-left:clamp(14px,3vw,28px);padding-right:clamp(14px,3vw,28px)}
+.topbar{min-height:72px;height:auto;border-bottom-color:#9bcfff20}
+.top-link{border-color:#69caff42;background:#3b9fe512;border-radius:11px;transition:background .2s,border-color .2s}
+.top-link:hover{background:#3b9fe526;border-color:#80d7ff88}
+.hero{border-color:#72cfff30;border-radius:22px;background:radial-gradient(ellipse at 90% 15%,#2876b522,transparent 44%),linear-gradient(145deg,#132137f5,#0e1929f8);box-shadow:0 18px 48px #0004,inset 0 1px #ffffff08}
+.hero h1{letter-spacing:-1.2px}
+.stats{gap:14px}
+.stat,.war-card{border-color:#9bcfff20;border-radius:17px;background:linear-gradient(145deg,#142238f5,#0e1929f8);box-shadow:0 10px 28px #0002;transition:transform .2s,border-color .2s}
+.stat:hover,.war-card:hover{border-color:#72cfff55}
+.stat-label,.section-kicker{color:#9bcfff}
+.stat-value{font-variant-numeric:tabular-nums}
+.section-head{margin-top:38px}
+.section-head h2{font-size:19px}
+.table-wrap{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;border:1px solid #9bcfff20;border-radius:17px;background:linear-gradient(145deg,#121e30f5,#0e1929f8);box-shadow:0 10px 28px #0002}
+table{width:100%;min-width:700px;border-collapse:separate;border-spacing:0}
+thead th{position:sticky;top:0;background:#16243a;color:#9fb3cc;border-bottom:1px solid #9bcfff20}
+tbody td{border-bottom:1px solid #ffffff0b}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#5bbfff0b}
+.rank{border:1px solid #9bcfff18;background:#ffffff0b}
+.rank-1{background:#ffd66b20;color:#ffdc83;border-color:#ffd66b35}
+.rank-2{background:#c8d7e520;color:#d8e4f0;border-color:#c8d7e535}
+.rank-3{background:#d99a6a20;color:#e8b18a;border-color:#d99a6a35}
+.guild-emblem,.war-crest{border-color:#72d8ff40;background:linear-gradient(145deg,#173b55,#282047);box-shadow:inset 0 1px #ffffff0c}
+.level-pill{border:1px solid #a28cff35;background:#8e7cff1c;color:#c2b6ff}
+.xp-track{background:#ffffff14}
+.xp-track i{background:linear-gradient(90deg,#72d8ff,#a28cff)}
+.search{color:var(--text);background:#111d2e;border-color:#31445e;border-radius:12px;outline:none}
+.search:focus{border-color:#72d8ff;box-shadow:0 0 0 3px #72d8ff20}
+.empty-state{border-color:#405673;background:#101b2b}
+.footer{border-top-color:#9bcfff20;color:#8495ad}
+@media(max-width:760px){
+ .shell{padding:0 13px 38px}
+ .hero{margin-top:17px;padding:23px 19px;border-radius:19px}
+ .hero:after{right:-14px;font-size:94px}
+ .stats{gap:9px;margin-bottom:28px}
+ .stat{padding:14px 12px;border-radius:14px}
+ .stat-value{font-size:23px}
+ .section-head{margin-top:29px}
+ .section-head h2{font-size:17px}
+ .table-wrap{border-radius:14px}
+ .war-card{border-radius:14px}
+ .topbar{min-height:64px}
+ .footer{font-size:10px}
+}
+@media(max-width:380px){
+ .shell{padding-left:10px;padding-right:10px}
+ .stat{padding:12px 10px}
+ .stat-value{font-size:21px}
+ .hero h1{font-size:29px}
+ .meta-chip{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){
+ *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+}</style></head><body><div class="shell"><header class="topbar"><div class="brand"><span class="brand-mark">♜</span><span>ZERON<small>GUILD COMMAND</small></span></div><a class="top-link" href="/">← CONTROL CENTER</a></header>
 <section class="hero"><div class="eyebrow">THE GUILD NETWORK</div><h1>Strength is built <span style="color:#64d8ff">together.</span></h1><p>Discover the guilds shaping the network, follow their rise, and track the latest rivalries across ZERON.</p><div class="hero-meta"><span class="meta-chip">✦ Live network overview</span><span class="meta-chip">⚔ Guild rankings</span><span class="meta-chip">♜ War records</span></div></section>
 <section class="stats"><article class="stat"><span class="stat-icon">♜</span><div class="stat-label">Guilds formed</div><div class="stat-value">${guilds.length.toLocaleString('en-US')}</div><div class="stat-note">Across the ZERON network</div></article><article class="stat"><span class="stat-icon">♟</span><div class="stat-label">Guild members</div><div class="stat-value">${totalMembers.toLocaleString('en-US')}</div><div class="stat-note">Combined membership</div></article><article class="stat"><span class="stat-icon">🏆</span><div class="stat-label">War victories</div><div class="stat-value">${totalWins.toLocaleString('en-US')}</div><div class="stat-note">Recorded guild wins</div></article><article class="stat"><span class="stat-icon">✦</span><div class="stat-label">Top guild</div><div class="stat-value" style="font-size:18px;overflow-wrap:anywhere">${topGuild ? esc(topGuild.name) : '—'}</div><div class="stat-note">${topGuild ? `Level ${Number(topGuild.level) || 1} · ${(Number(topGuild.xp) || 0).toLocaleString('en-US')} XP` : 'Be the first to rise'}</div></article></section>
 <section><div class="section-head"><div><div class="section-kicker">THE HALL OF HONOR</div><h2>Guild leaderboard</h2><div class="section-sub">Rankings, progression, and strength across the network.</div></div><input id="guild-search" class="search" type="search" placeholder="Search guilds…" aria-label="Search guilds"></div><div class="table-wrap"><table><thead><tr><th>Rank</th><th>Guild</th><th>Level</th><th>Total XP</th><th>Members</th><th>Wins</th><th>Founded</th></tr></thead><tbody id="guild-rows">${guildRows}</tbody></table></div></section>
