@@ -2811,6 +2811,10 @@ label:has(> #ann-embed) {
   grid-row: 1;
   min-width: 0;
 }
+#content.ov-layout-split-preview > .section-head,
+#content.ov-layout-split-preview > .sys-grid {
+  grid-column: 1 / -1;
+}
 #content.ov-layout-split-preview > .ov-feed-section {
   grid-column: 2;
   grid-row: 2;
