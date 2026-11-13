@@ -2481,3 +2481,28 @@ footer { border-top-color: #a8d4ff12; color: #7388a3; }
   min-height: 180px;
   visibility: visible;
 }
+
+/* ZERON: announcement embed checkbox sizing */
+#ann-embed {
+  appearance: auto !important;
+  -webkit-appearance: checkbox !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  min-height: 16px !important;
+  flex: 0 0 16px !important;
+  margin: 0 7px 0 0 !important;
+  padding: 0 !important;
+  accent-color: #63b9ff;
+  vertical-align: middle;
+  box-shadow: none !important;
+  border-radius: 3px !important;
+}
+label:has(> #ann-embed) {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  cursor: pointer;
+}
+
