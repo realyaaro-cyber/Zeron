@@ -1839,7 +1839,11 @@ tbody tr:hover{background:#5bbfff0b}
     try {
       const event = db.events.openRegistration(req.guild.id, req.params.eventId, req.session.user.id);
       const announcementSent = await publishEventRegistrationAnnouncement(req.guild, event, req.session.user.id);
-      res.json({ ok: true, event, announcementSent });
+      if (!announcementSent) {
+        db.events.resetRegistrationToDraft(req.guild.id, event.id, req.session.user.id);
+        return res.status(502).json({ error: 'Could not publish the registration announcement. Check that ZERON can view and send messages in the selected channel, then try again.' });
+      }
+      res.json({ ok: true, event, announcementSent: true });
     } catch (error) {
       res.status(400).json({ error: error.message || 'Could not open registration.' });
     }
