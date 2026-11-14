@@ -1496,7 +1496,7 @@ async function renderEvents(){
           <div style="min-width:0;flex:1">
             <div class="eyebrow">EVENT #${event.id} · ${escapeHtml(event.event_type.replaceAll('_',' '))}</div>
             <h3 style="margin:5px 0 7px">${escapeHtml(event.name)}</h3>
-            <p class="muted" style="margin:0">${escapeHtml(event.description||'No description provided.')}</p>
+            <p class="muted" style="margin:0">${escapeHtml(event.custom_message||event.description||'No custom announcement message.')}</p>
             <div class="muted" style="font-size:12px;margin-top:10px">${escapeHtml(statusLabel(event.status))} · ${event.participantCount}/${event.capacity} participants</div>
           </div>
           <button class="btn" type="button" data-event-view="${event.id}">Manage →</button>
@@ -1516,8 +1516,27 @@ async function renderEvents(){
             </select></div>
             <div class="field"><label for="event-capacity">Player capacity</label><input id="event-capacity" name="capacity" type="number" min="2" max="1000" value="32" required></div>
             <div class="field"><label for="event-announcement-channel">Announcement channel</label><select id="event-announcement-channel" name="announcementChannelId" required><option value="">— Choose an announcement channel —</option>${channelOptions}</select><small class="muted">ZERON will post every event update in this channel.</small></div>
-            <div class="field"><label for="event-description">Description</label><textarea id="event-description" name="description" maxlength="1500" rows="3" placeholder="What is this event about?"></textarea></div>
-            <div class="field"><label for="event-rules">Rules</label><textarea id="event-rules" name="rules" maxlength="4000" rows="4" placeholder="Add the event rules…"></textarea></div>
+            <div class="field" style="grid-column:1/-1">
+              <label for="event-custom-message">Custom announcement message</label>
+              <textarea id="event-custom-message" name="customMessage" maxlength="3500" rows="7" placeholder="Write your event details, rules, schedule, prizes, or any information members should see…"></textarea>
+              <small class="muted">Discord Markdown is supported: **bold**, *italic*, headings with #, and --- separators.</small>
+            </div>
+            <div class="field" style="grid-column:1/-1">
+              <label>Live announcement preview · Components V2</label>
+              <div id="event-announcement-preview" style="background:#202225;border:1px solid #ffffff20;border-left:4px solid var(--accent,#46bbff);border-radius:12px;padding:16px;color:#f2f3f5;max-width:720px">
+                <div style="font-size:11px;letter-spacing:.12em;color:#aeb4bf">ZERON · EVENT ANNOUNCEMENT</div>
+                <h3 id="event-preview-title" style="margin:8px 0 12px">🎉 Your event name — Registration Open</h3>
+                <div id="event-preview-message" style="white-space:pre-wrap;overflow-wrap:anywhere;color:#dcddde">Your custom announcement message will appear here.</div>
+                <div style="height:1px;background:#ffffff20;margin:14px 0"></div>
+                <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:#c7c9ce">
+                  <span><strong>Format</strong> · <span id="event-preview-format">1v1 tournament</span></span>
+                  <span><strong>Players</strong> · <span id="event-preview-capacity">0/32</span></span>
+                  <span><strong>Registration</strong> · 🟢 OPEN</span>
+                </div>
+                <div style="margin-top:16px"><span style="display:inline-block;background:#248046;color:white;border-radius:6px;padding:8px 18px;font-weight:700">Register</span></div>
+                <div style="font-size:11px;color:#9da3ad;margin-top:12px">ZERON · Registration Open</div>
+              </div>
+            </div>
           </div>
           <button class="btn primary" type="submit" ${data.channels.length?'':'disabled'}>Create draft event</button>
         </form>
@@ -1527,11 +1546,24 @@ async function renderEvents(){
     form?.addEventListener('submit',async event=>{
       event.preventDefault();
       const button=form.querySelector('button[type="submit"]');
-      const payload={name:form.elements.namedItem('name').value.trim(),type:form.elements.namedItem('type').value,capacity:Number(form.elements.namedItem('capacity').value),description:form.elements.namedItem('description').value,rules:form.elements.namedItem('rules').value,announcementChannelId:form.elements.namedItem('announcementChannelId').value};
+      const payload={name:form.elements.namedItem('name').value.trim(),type:form.elements.namedItem('type').value,capacity:Number(form.elements.namedItem('capacity').value),customMessage:form.elements.namedItem('customMessage').value,announcementChannelId:form.elements.namedItem('announcementChannelId').value};
       button.disabled=true;button.textContent='Creating…';
       try{await api(`/api/guild/${currentGuild}/events`,{method:'POST',body:JSON.stringify(payload)});toast('Draft event created.');await renderEvents();}
       catch(error){toast(error.message,true);button.disabled=false;button.textContent='Create draft event';}
     });
+    const previewMarkup=value=>escapeHtml(value||'').replace(/^### (.+)$/gm,'<strong style="font-size:1.05em">$1</strong>').replace(/^## (.+)$/gm,'<strong style="font-size:1.12em">$1</strong>').replace(/^# (.+)$/gm,'<strong style="font-size:1.2em">$1</strong>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/__(.+?)__/g,'<u>$1</u>').replace(/~~(.+?)~~/g,'<s>$1</s>').replace(/`([^`]+)`/g,'<code style="background:#111;padding:2px 4px;border-radius:4px">$1</code>').replace(/^---$/gm,'<span style="display:block;border-top:1px solid #ffffff30;margin:10px 0"></span>');
+    const syncEventPreview=()=>{
+      const name=document.getElementById('event-name')?.value.trim()||'Your event name';
+      const type=document.getElementById('event-type')?.selectedOptions[0]?.textContent||'1v1 Tournament';
+      const capacity=document.getElementById('event-capacity')?.value||'32';
+      const message=document.getElementById('event-custom-message')?.value||'Your custom announcement message will appear here.';
+      document.getElementById('event-preview-title').textContent='🎉 '+name+' — Registration Open';
+      document.getElementById('event-preview-format').textContent=type;
+      document.getElementById('event-preview-capacity').textContent='0/'+capacity;
+      document.getElementById('event-preview-message').innerHTML=previewMarkup(message);
+    };
+    ['event-name','event-type','event-capacity','event-custom-message'].forEach(id=>document.getElementById(id)?.addEventListener('input',syncEventPreview));
+    syncEventPreview();
     content.querySelectorAll('[data-event-view]').forEach(button=>button.addEventListener('click',()=>renderEventDetails(button.dataset.eventView)));
   }catch(error){
     content.innerHTML=`<div class="panel card empty"><h3>Could not load Event Management</h3><p>${escapeHtml(error.message)}</p></div>`;
@@ -1610,11 +1642,10 @@ async function renderEventDetails(eventId){
         <button type="button" class="btn" id="event-back">← All events</button>
         <div class="eyebrow" style="margin-top:16px">EVENT #${event.id} · ${escapeHtml(event.event_type.replaceAll('_',' '))}</div>
         <h2 style="margin:5px 0">${escapeHtml(event.name)}</h2>
-        <p class="muted">${escapeHtml(event.description||'No description provided.')}</p>
+        <div class="muted" style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(event.custom_message||event.description||'No custom announcement message.')}</div>
         <div class="stats" style="margin:18px 0"><div class="stat"><div class="stat-label">STATUS</div><div class="stat-value" style="font-size:18px">${escapeHtml(event.status.replaceAll('_',' '))}</div></div><div class="stat"><div class="stat-label">REGISTERED</div><div class="stat-value">${data.participants.length}/${event.capacity}</div></div><div class="stat"><div class="stat-label">STAFF</div><div class="stat-value">${data.staff.length}</div></div></div>
         ${actions?'<div style="display:flex;gap:8px;flex-wrap:wrap">'+actions+'</div>':''}
       </div>
-      <div class="panel card" style="margin-bottom:14px"><h3>Rules</h3><p class="muted" style="white-space:pre-wrap">${escapeHtml(event.rules||'No rules have been added.')}</p></div>
       <div class="panel card" style="margin-bottom:14px"><h3>Participants</h3>${participants}</div>
       ${bracketTools}
       ${matchesPanel}

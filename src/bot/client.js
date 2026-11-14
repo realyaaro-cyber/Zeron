@@ -2968,97 +2968,37 @@ const fishWaitMessages = new Map();
         const result = db.acceptPlayerGuildInvite(guildId, Number(guildRecordId), userId);
         return interaction.reply({ content: result.ok ? `⚔️ You joined **${result.guild.name}**!` : result.reason === 'full' ? 'That guild is full.' : result.reason === 'member' ? 'You are already in a guild.' : 'This invitation is invalid or has expired.', ephemeral: true });
       }
-      if (interaction.isStringSelectMenu() && interaction.customId.startsWith('zeron_event_join:')) {
-        const [, guildId, userId] = interaction.customId.split(':');
-        if (interaction.user.id !== userId) {
-          return interaction.reply({ content: 'This event selection belongs to another member.', ephemeral: true });
+      if (interaction.isButton() && interaction.customId.startsWith('zeron_event_register:')) {
+        const [, guildId, eventIdText] = interaction.customId.split(':');
+        const eventId = Number(eventIdText);
+        if (!interaction.guildId || interaction.guildId !== guildId || !db.events || !Number.isSafeInteger(eventId)) {
+          return interaction.reply({ content: 'This event registration button is no longer valid.', ephemeral: true });
         }
-        if (!interaction.guildId || interaction.guildId !== guildId || !db.events) {
-          return interaction.reply({ content: 'This event selection is no longer valid.', ephemeral: true });
+        const event = db.events.getEvent(guildId, eventId);
+        if (!event) return interaction.reply({ content: 'This event could not be found.', ephemeral: true });
+        if (event.status !== 'registration_open') {
+          return interaction.reply({ content: 'Registration for this event is closed.', ephemeral: true });
         }
-        const eventId = Number(interaction.values[0]);
-        const result = db.events.joinEvent(guildId, eventId, userId);
-        if (result.ok && result.locked) { const event = db.events.getEvent(guildId, eventId); const channel = event?.announcement_channel_id ? interaction.guild.channels.cache.get(event.announcement_channel_id) : null; if (channel) channel.send({ content: `Registration is now full and closed for ${event.name}.`, allowedMentions: { parse: [] } }).then(message => db.events.recordAnnouncement(guildId, eventId, channel.id, message.id, 'registration', userId)).catch(error => console.error('Event capacity announcement failed:', error.message)); }
+        const result = db.events.joinEvent(guildId, eventId, interaction.user.id);
+        if (result.ok && result.locked) {
+          const updatedEvent = db.events.getEvent(guildId, eventId);
+          const channel = updatedEvent?.announcement_channel_id
+            ? interaction.guild.channels.cache.get(updatedEvent.announcement_channel_id)
+            : null;
+          if (channel) {
+            channel.send(toV2Payload({ content: `Registration is now full and closed for ${updatedEvent.name}.` }))
+              .then(message => db.events.recordAnnouncement(guildId, eventId, channel.id, message.id, 'registration', interaction.user.id))
+              .catch(error => console.error('Event capacity announcement failed:', error.message));
+          }
+        }
         const message = result.ok
-          ? (result.locked ? 'You are registered. The event has reached capacity and registration is now locked.' : 'You are registered for the event.')
+          ? (result.locked ? 'You are registered. Registration is now full and locked.' : 'You are registered for the event.')
           : result.reason === 'already_joined' ? 'You are already registered for this event.'
           : result.reason === 'already_in_event' ? 'You are already registered for another active event.'
           : result.reason === 'full' ? 'This event has reached capacity.'
           : result.reason === 'closed' ? 'Registration for this event is closed.'
           : 'This event could not be found.';
-        return interaction.update({ content: message, embeds: [], components: [] });
-      }
-
-      if (interaction.isChatInputCommand() && interaction.commandName === 'event') {
-        if (!interaction.guildId || !interaction.guild || !db.events) {
-          return interaction.reply({ content: 'Events can only be used inside a server.', ephemeral: true });
-        }
-        const subcommand = interaction.options.getSubcommand();
-        const selectedId = interaction.options.getInteger('event_id');
-        const visibleStatuses = ['registration_open', 'registration_locked', 'preparing', 'active', 'paused'];
-        if (subcommand === 'join') {
-          const openEvents = db.events.listEvents(interaction.guildId, ['registration_open']);
-          if (selectedId) {
-            const result = db.events.joinEvent(interaction.guildId, selectedId, interaction.user.id);
-            if (result.ok && result.locked) { const event = db.events.getEvent(interaction.guildId, selectedId); const channel = event?.announcement_channel_id ? interaction.guild.channels.cache.get(event.announcement_channel_id) : null; if (channel) channel.send({ content: `Registration is now full and closed for ${event.name}.`, allowedMentions: { parse: [] } }).then(message => db.events.recordAnnouncement(interaction.guildId, selectedId, channel.id, message.id, 'registration', interaction.user.id)).catch(error => console.error('Event capacity announcement failed:', error.message)); }
-            const message = result.ok
-              ? (result.locked ? 'You are registered. Registration is now full and locked.' : 'You are registered for the event.')
-              : result.reason === 'already_joined' ? 'You are already registered for this event.'
-              : result.reason === 'already_in_event' ? 'You are already registered for another active event.'
-              : result.reason === 'full' ? 'This event has reached capacity.'
-              : result.reason === 'closed' ? 'Registration for this event is closed.'
-              : 'That event was not found.';
-            return interaction.reply({ content: message, ephemeral: true });
-          }
-          if (!openEvents.length) return interaction.reply({ content: 'There are no events accepting registrations right now.', ephemeral: true });
-          if (openEvents.length === 1) {
-            const result = db.events.joinEvent(interaction.guildId, openEvents[0].id, interaction.user.id);
-            if (result.ok && result.locked) { const event = db.events.getEvent(interaction.guildId, openEvents[0].id); const channel = event?.announcement_channel_id ? interaction.guild.channels.cache.get(event.announcement_channel_id) : null; if (channel) channel.send({ content: `Registration is now full and closed for ${event.name}.`, allowedMentions: { parse: [] } }).then(message => db.events.recordAnnouncement(interaction.guildId, event.id, channel.id, message.id, 'registration', interaction.user.id)).catch(error => console.error('Event capacity announcement failed:', error.message)); }
-            const message = result.ok
-              ? (result.locked ? 'You are registered. Registration is now full and locked.' : 'You are registered for the event.')
-              : result.reason === 'already_joined' ? 'You are already registered for this event.'
-              : result.reason === 'already_in_event' ? 'You are already registered for another active event.'
-              : result.reason === 'full' ? 'This event has reached capacity.'
-              : 'Registration for this event is closed.';
-            return interaction.reply({ content: message, ephemeral: true });
-          }
-          const options = openEvents.slice(0, 25).map(event => ({
-            label: event.name.slice(0, 100),
-            description: 'Event #' + event.id + ' · ' + db.events.listParticipants(interaction.guildId, event.id).length + '/' + event.capacity + ' registered',
-            value: String(event.id)
-          }));
-          const menu = new StringSelectMenuBuilder()
-            .setCustomId('zeron_event_join:' + interaction.guildId + ':' + interaction.user.id)
-            .setPlaceholder('Choose an event to join')
-            .addOptions(options);
-          return interaction.reply({
-            content: 'More than one event is open for registration. Choose which event you want to join:',
-            components: [new ActionRowBuilder().addComponents(menu)],
-            ephemeral: true
-          });
-        }
-        const events = db.events.listEvents(interaction.guildId, visibleStatuses);
-        if (selectedId) {
-          const event = db.events.getEvent(interaction.guildId, selectedId);
-          if (!event) return interaction.reply({ content: 'Event not found.', ephemeral: true });
-          const count = db.events.listParticipants(interaction.guildId, event.id).length;
-          const status = event.status.replaceAll('_', ' ');
-          const description = [
-            event.description || 'No description provided.',
-            '',
-            '**Status:** ' + status,
-            '**Format:** ' + event.event_type.replaceAll('_', ' '),
-            '**Registration:** ' + count + '/' + event.capacity,
-            event.rules ? '**Rules:**\\n' + event.rules.slice(0, 900) : ''
-          ].filter(Boolean).join('\\n');
-          return interaction.reply({ embeds: [new EmbedBuilder().setColor(db.accentColor(interaction.guildId)).setTitle(event.name + ' · Event #' + event.id).setDescription(description).setTimestamp(new Date(event.created_at))] });
-        }
-        if (!events.length) return interaction.reply({ content: 'There are no upcoming or active events in this server.' });
-        const description = events.slice(0, 10).map(event => {
-          const count = db.events.listParticipants(interaction.guildId, event.id).length;
-          return '**#' + event.id + ' · ' + event.name + '**\\n' + event.status.replaceAll('_', ' ') + ' · ' + count + '/' + event.capacity + ' registered';
-        }).join('\\n\\n');
-        return interaction.reply({ embeds: [new EmbedBuilder().setColor(db.accentColor(interaction.guildId)).setTitle('📅 Server Events').setDescription(description).setFooter({ text: 'Use /event info event_id:<ID> for full details.' })] });
+        return interaction.reply({ content: message, ephemeral: true });
       }
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'guild') {
