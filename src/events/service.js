@@ -407,6 +407,13 @@ function createEventService(db) {
         .all(String(guildId), Number(eventId));
     },
 
+    getAnnouncement(guildId, eventId, type) {
+      return db.prepare(`SELECT * FROM event_announcements
+        WHERE guild_id = ? AND event_id = ? AND announcement_type = ?
+        ORDER BY id DESC LIMIT 1`)
+        .get(String(guildId), Number(eventId), String(type)) || null;
+    },
+
     recordAnnouncement(guildId, eventId, channelId, messageId, type, actorId) {
       if (!getEvent(guildId, eventId)) throw new Error('Event not found.');
       const result = db.prepare(`INSERT INTO event_announcements

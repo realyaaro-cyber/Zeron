@@ -2982,13 +2982,43 @@ const fishWaitMessages = new Map();
         const result = db.events.joinEvent(guildId, eventId, interaction.user.id);
         if (result.ok && result.locked) {
           const updatedEvent = db.events.getEvent(guildId, eventId);
-          const channel = updatedEvent?.announcement_channel_id
-            ? interaction.guild.channels.cache.get(updatedEvent.announcement_channel_id)
-            : null;
-          if (channel) {
-            channel.send(toV2Payload({ content: `Registration is now full and closed for ${updatedEvent.name}.` }))
-              .then(message => db.events.recordAnnouncement(guildId, eventId, channel.id, message.id, 'registration', interaction.user.id))
-              .catch(error => console.error('Event capacity announcement failed:', error.message));
+          const announcement = db.events.getAnnouncement(guildId, eventId, 'registration');
+          try {
+            const channel = announcement?.channel_id
+              ? (interaction.guild.channels.cache.get(String(announcement.channel_id))
+                || await interaction.guild.channels.fetch(String(announcement.channel_id)).catch(() => null))
+              : null;
+            const registrationMessage = channel && announcement?.message_id
+              ? await channel.messages.fetch(String(announcement.message_id)).catch(() => null)
+              : null;
+
+            if (registrationMessage && updatedEvent) {
+              const customMessage = String(updatedEvent.custom_message || updatedEvent.description || '').trim();
+              const lockedEmbed = new EmbedBuilder()
+                .setColor(db.accentColor(guildId))
+                .setTitle(`🎉 ${updatedEvent.name} — Registration Locked`)
+                .setDescription(
+                  (customMessage || 'Registration is now open. Select Register below to join this event.') +
+                  '\n\n━━━━━━━━━━━━━━━━━━━━\n🔒 **REGISTRATION LOCKED**'
+                )
+                .addFields(
+                  { name: 'Format', value: updatedEvent.event_type.replaceAll('_', ' '), inline: true },
+                  { name: 'Players', value: `${result.count}/${result.capacity}`, inline: true },
+                  { name: 'Registration', value: '🔒 LOCKED', inline: true }
+                )
+                .setFooter({ text: `ZERON Event #${eventId} · Registration Locked` })
+                .setTimestamp();
+
+              await registrationMessage.edit(buildV2Payload({
+                embeds: [lockedEmbed],
+                components: [],
+                allowedMentions: { parse: [] }
+              }));
+            } else {
+              console.warn(`Could not find the registration announcement to lock for event ${eventId}.`);
+            }
+          } catch (error) {
+            console.error(`Could not lock the registration announcement for event ${eventId}:`, error.message);
           }
         }
         const message = result.ok
