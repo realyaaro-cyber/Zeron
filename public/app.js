@@ -486,15 +486,15 @@ async function renderAnalytics(){
       featureCards + '</div>';
 
     const xpRows = d.topXp.length
-      ? d.topXp.map((u, i) => '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(u.user_id) + '</td><td>' + num(u.level) + '</td><td>' + num(u.xp) + '</td></tr>').join('')
+      ? d.topXp.map((u, i) => '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(u.display_name || u.user_id) + '</td><td>' + num(u.level) + '</td><td>' + num(u.xp) + '</td></tr>').join('')
       : '<tr><td colspan="4">No XP records yet.</td></tr>';
 
     const modRows = d.recentModeration.length
-      ? d.recentModeration.map(m => '<tr><td>' + escapeHtml(m.action || '—') + '</td><td>' + escapeHtml(m.target_id || '—') + '</td><td>' + escapeHtml(m.moderator_id || 'System') + '</td><td>' + escapeHtml(m.created_at || '—') + '</td></tr>').join('')
+      ? d.recentModeration.map(m => '<tr><td>' + escapeHtml(m.action || '—') + '</td><td>' + escapeHtml(m.target_display_name || m.target_id || '—') + '</td><td>' + escapeHtml(m.moderator_display_name || m.moderator_id || 'System') + '</td><td>' + escapeHtml(m.created_at || '—') + '</td></tr>').join('')
       : '<tr><td colspan="4">No moderation actions recorded.</td></tr>';
 
     const txRows = d.recentTransactions.length
-      ? d.recentTransactions.map(t => '<tr><td>' + escapeHtml(t.user_id || '—') + '</td><td>' + num(t.amount) + '</td><td>' + escapeHtml(t.reason || '—') + '</td><td>' + escapeHtml(t.created_at || '—') + '</td></tr>').join('')
+      ? d.recentTransactions.map(t => '<tr><td>' + escapeHtml(t.display_name || t.user_id || '—') + '</td><td>' + num(t.amount) + '</td><td>' + escapeHtml(t.reason || '—') + '</td><td>' + escapeHtml(t.created_at || '—') + '</td></tr>').join('')
       : '<tr><td colspan="4">No economy transactions recorded.</td></tr>';
 
     const table = (title, headers, rows) =>
@@ -504,9 +504,9 @@ async function renderAnalytics(){
 
     content.innerHTML = '<div class="section-head"><div><h3>Server analytics</h3><p>Live aggregate data from ZERON SQLite records.</p></div><button class="btn" id="analytics-refresh">Refresh ↻</button></div>' +
       stats +
-      table('Top XP members', ['#', 'USER ID', 'LEVEL', 'XP'], xpRows) +
+      table('Top XP members', ['#', 'MEMBER', 'LEVEL', 'XP'], xpRows) +
       table('Recent moderation', ['ACTION', 'TARGET', 'MODERATOR', 'TIME'], modRows) +
-      table('Recent economy transactions', ['USER ID', 'AMOUNT', 'REASON', 'TIME'], txRows);
+      table('Recent economy transactions', ['MEMBER', 'AMOUNT', 'REASON', 'TIME'], txRows);
 
     const refresh = document.getElementById('analytics-refresh');
     if (refresh) refresh.onclick = () => renderAnalytics();
