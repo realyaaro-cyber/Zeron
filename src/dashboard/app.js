@@ -1935,10 +1935,10 @@ tbody tr:hover{background:#5bbfff0b}
   app.delete('/api/guild/:guildId/events/:eventId', requireLogin, requireEventAccess, (req, res) => {
     if (!req.eventAdmin) return res.status(403).json({ error: 'Only a server administrator can delete an event.' });
     try {
-      const deleted = db.events.deleteCompletedEvent(req.guild.id, req.params.eventId);
+      const deleted = db.events.deleteEvent(req.guild.id, req.params.eventId);
       res.json({ ok: true, event: deleted });
     } catch (error) {
-      res.status(400).json({ error: error.message || 'Could not delete completed event.' });
+      res.status(400).json({ error: error.message || 'Could not delete event.' });
     }
   });
 
