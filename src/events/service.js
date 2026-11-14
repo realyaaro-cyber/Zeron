@@ -1,3 +1,5 @@
+const crypto = require('node:crypto');
+
 const EVENT_TYPES = new Set(['1v1_tournament', 'team_vs_team', 'free_for_all', 'custom']);
 const EVENT_STATUSES = new Set(['draft', 'registration_open', 'registration_locked', 'preparing', 'active', 'paused', 'completed', 'cancelled']);
 const EVENT_STAFF_ROLES = new Set(['host', 'referee', 'scorekeeper']);
@@ -278,6 +280,107 @@ function createEventService(db) {
         .run(status, Date.now(), String(guildId), Number(eventId));
       log(eventId, guildId, actorId, 'status_changed', { from: event.status, to: status });
       return getEvent(guildId, eventId);
+    },
+
+    createTournamentBracket(guildId, eventId, actorId) {
+      return db.transaction(() => {
+        const event = getEvent(guildId, eventId);
+        if (!event) throw new Error('Event not found.');
+        if (event.event_type !== '1v1_tournament') throw new Error('Brackets are only available for 1v1 tournament events.');
+        if (event.status !== 'registration_locked') throw new Error('Lock registration before generating the bracket.');
+        const existing = db.prepare('SELECT COUNT(*) AS count FROM event_matches WHERE event_id = ?').get(Number(eventId)).count;
+        if (existing) throw new Error('The bracket already exists and cannot be regenerated.');
+        const participants = db.prepare("SELECT user_id FROM event_participants WHERE event_id = ? AND status = 'registered' ORDER BY joined_at")
+          .all(Number(eventId)).map(row => row.user_id);
+        if (participants.length < 2 || (participants.length & (participants.length - 1)) !== 0) {
+          throw new Error('A no-bye single-elimination bracket needs 2, 4, 8, 16, 32, 64, or another power-of-two participant count.');
+        }
+        for (let i = participants.length - 1; i > 0; i--) {
+          const j = crypto.randomInt(i + 1);
+          [participants[i], participants[j]] = [participants[j], participants[i]];
+        }
+        const now = Date.now();
+        const insert = db.prepare(\`INSERT INTO event_matches
+          (event_id, guild_id, round_number, match_number, participant_a, participant_b, status, bracket_locked, created_at)
+          VALUES (?, ?, 1, ?, ?, ?, 'pending', 1, ?)\`);
+        for (let i = 0; i < participants.length; i += 2) {
+          insert.run(Number(eventId), String(guildId), (i / 2) + 1, participants[i], participants[i + 1], now);
+        }
+        db.prepare("UPDATE events SET status = 'preparing', updated_at = ? WHERE id = ?")
+          .run(now, Number(eventId));
+        log(eventId, guildId, actorId, 'bracket_generated', { participantCount: participants.length, matchCount: participants.length / 2 });
+        return db.prepare('SELECT * FROM event_matches WHERE event_id = ? ORDER BY round_number, match_number')
+          .all(Number(eventId));
+      })();
+    },
+
+    listMatches(guildId, eventId) {
+      return db.prepare('SELECT * FROM event_matches WHERE guild_id = ? AND event_id = ? ORDER BY round_number, match_number')
+        .all(String(guildId), Number(eventId));
+    },
+
+    recordMatchResult(guildId, eventId, matchId, scoreA, scoreB, actorId) {
+      return db.transaction(() => {
+        const event = getEvent(guildId, eventId);
+        if (!event) throw new Error('Event not found.');
+        if (event.event_type !== '1v1_tournament') throw new Error('Match scoring for this event format is not available yet.');
+        if (event.status !== 'active') throw new Error('The event must be active before match results can be recorded.');
+        const match = db.prepare('SELECT * FROM event_matches WHERE guild_id = ? AND event_id = ? AND id = ?')
+          .get(String(guildId), Number(eventId), Number(matchId));
+        if (!match) throw new Error('Match not found.');
+        if (match.status === 'completed') throw new Error('This match result is already locked.');
+        const a = Number(scoreA), b = Number(scoreB);
+        if (!Number.isFinite(a) || !Number.isFinite(b) || a < 0 || b < 0 || a > 1000000 || b > 1000000) {
+          throw new Error('Scores must be valid numbers between 0 and 1,000,000.');
+        }
+        if (a === b) throw new Error('A tied score needs to be resolved before the result can be recorded.');
+        const winnerId = a > b ? match.participant_a : match.participant_b;
+        const now = Date.now();
+        const insertScore = db.prepare(\`INSERT INTO event_scores
+          (match_id, event_id, guild_id, user_id, score, recorded_by, recorded_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)\`);
+        insertScore.run(match.id, Number(eventId), String(guildId), match.participant_a, a, String(actorId), now);
+        insertScore.run(match.id, Number(eventId), String(guildId), match.participant_b, b, String(actorId), now);
+        db.prepare("UPDATE event_matches SET winner_id = ?, status = 'completed', completed_at = ? WHERE id = ?")
+          .run(winnerId, now, match.id);
+        log(eventId, guildId, actorId, 'match_result_recorded', {
+          matchId: match.id, participantA: match.participant_a, scoreA: a,
+          participantB: match.participant_b, scoreB: b, winnerId
+        });
+
+        const unfinished = db.prepare("SELECT COUNT(*) AS count FROM event_matches WHERE event_id = ? AND round_number = ? AND status != 'completed'")
+          .get(Number(eventId), match.round_number).count;
+        let championId = null;
+        let nextRound = null;
+        if (unfinished === 0) {
+          const winners = db.prepare('SELECT winner_id FROM event_matches WHERE event_id = ? AND round_number = ? ORDER BY match_number')
+            .all(Number(eventId), match.round_number).map(row => row.winner_id).filter(Boolean);
+          if (winners.length === 1) {
+            championId = winners[0];
+            db.prepare("UPDATE events SET status = 'completed', updated_at = ? WHERE id = ?")
+              .run(now, Number(eventId));
+            log(eventId, guildId, actorId, 'event_champion_decided', { championId });
+          } else {
+            const roundNumber = match.round_number + 1;
+            const insertNext = db.prepare(\`INSERT INTO event_matches
+              (event_id, guild_id, round_number, match_number, participant_a, participant_b, status, bracket_locked, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, 'pending', 1, ?)\`);
+            for (let i = 0; i < winners.length; i += 2) {
+              insertNext.run(Number(eventId), String(guildId), roundNumber, (i / 2) + 1, winners[i], winners[i + 1], now);
+            }
+            nextRound = roundNumber;
+            log(eventId, guildId, actorId, 'bracket_round_advanced', { roundNumber, matchCount: winners.length / 2 });
+          }
+        }
+        return { ok: true, match: db.prepare('SELECT * FROM event_matches WHERE id = ?').get(match.id), nextRound, championId };
+      })();
+    },
+
+    getScoreLeaderboard(guildId, eventId) {
+      return db.prepare(\`SELECT user_id, MAX(score) AS highest_score, SUM(score) AS total_score, COUNT(*) AS scored_matches
+        FROM event_scores WHERE guild_id = ? AND event_id = ?
+        GROUP BY user_id ORDER BY highest_score DESC, total_score DESC, user_id ASC\`)
+        .all(String(guildId), Number(eventId));
     },
 
     recordAnnouncement(guildId, eventId, channelId, messageId, type, actorId) {
