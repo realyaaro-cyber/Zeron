@@ -2968,6 +2968,96 @@ const fishWaitMessages = new Map();
         const result = db.acceptPlayerGuildInvite(guildId, Number(guildRecordId), userId);
         return interaction.reply({ content: result.ok ? `⚔️ You joined **${result.guild.name}**!` : result.reason === 'full' ? 'That guild is full.' : result.reason === 'member' ? 'You are already in a guild.' : 'This invitation is invalid or has expired.', ephemeral: true });
       }
+      if (interaction.isStringSelectMenu() && interaction.customId.startsWith('zeron_event_join:')) {
+        const [, guildId, userId] = interaction.customId.split(':');
+        if (interaction.user.id !== userId) {
+          return interaction.reply({ content: 'This event selection belongs to another member.', ephemeral: true });
+        }
+        if (!interaction.guildId || interaction.guildId !== guildId || !db.events) {
+          return interaction.reply({ content: 'This event selection is no longer valid.', ephemeral: true });
+        }
+        const eventId = Number(interaction.values[0]);
+        const result = db.events.joinEvent(guildId, eventId, userId);
+        const message = result.ok
+          ? (result.locked ? '✅ You are registered! The event has now reached capacity and registration is locked.' : '✅ You are registered for the event.')
+          : result.reason === 'already_joined' ? 'You are already registered for this event.'
+          : result.reason === 'already_in_event' ? 'You are already registered for another active event.'
+          : result.reason === 'full' ? 'This event has reached capacity.'
+          : result.reason === 'closed' ? 'Registration for this event is closed.'
+          : 'This event could not be found.';
+        return interaction.update({ content: message, embeds: [], components: [] });
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'event') {
+        if (!interaction.guildId || !interaction.guild || !db.events) {
+          return interaction.reply({ content: 'Events can only be used inside a server.', ephemeral: true });
+        }
+        const subcommand = interaction.options.getSubcommand();
+        const selectedId = interaction.options.getInteger('event_id');
+        const visibleStatuses = ['registration_open', 'registration_locked', 'preparing', 'active', 'paused'];
+        if (subcommand === 'join') {
+          const openEvents = db.events.listEvents(interaction.guildId, ['registration_open']);
+          if (selectedId) {
+            const result = db.events.joinEvent(interaction.guildId, selectedId, interaction.user.id);
+            const message = result.ok
+              ? (result.locked ? '✅ You are registered! Registration is now full and locked.' : '✅ You are registered for the event.')
+              : result.reason === 'already_joined' ? 'You are already registered for this event.'
+              : result.reason === 'already_in_event' ? 'You are already registered for another active event.'
+              : result.reason === 'full' ? 'This event has reached capacity.'
+              : result.reason === 'closed' ? 'Registration for this event is closed.'
+              : 'That event was not found.';
+            return interaction.reply({ content: message, ephemeral: true });
+          }
+          if (!openEvents.length) return interaction.reply({ content: 'There are no events accepting registrations right now.', ephemeral: true });
+          if (openEvents.length === 1) {
+            const result = db.events.joinEvent(interaction.guildId, openEvents[0].id, interaction.user.id);
+            const message = result.ok
+              ? (result.locked ? '✅ You are registered! Registration is now full and locked.' : '✅ You are registered for the event.')
+              : result.reason === 'already_joined' ? 'You are already registered for this event.'
+              : result.reason === 'already_in_event' ? 'You are already registered for another active event.'
+              : result.reason === 'full' ? 'This event has reached capacity.'
+              : 'Registration for this event is closed.';
+            return interaction.reply({ content: message, ephemeral: true });
+          }
+          const options = openEvents.slice(0, 25).map(event => ({
+            label: event.name.slice(0, 100),
+            description: 'Event #' + event.id + ' · ' + db.events.listParticipants(interaction.guildId, event.id).length + '/' + event.capacity + ' registered',
+            value: String(event.id)
+          }));
+          const menu = new StringSelectMenuBuilder()
+            .setCustomId('zeron_event_join:' + interaction.guildId + ':' + interaction.user.id)
+            .setPlaceholder('Choose an event to join')
+            .addOptions(options);
+          return interaction.reply({
+            content: 'More than one event is open for registration. Choose which event you want to join:',
+            components: [new ActionRowBuilder().addComponents(menu)],
+            ephemeral: true
+          });
+        }
+        const events = db.events.listEvents(interaction.guildId, visibleStatuses);
+        if (selectedId) {
+          const event = db.events.getEvent(interaction.guildId, selectedId);
+          if (!event) return interaction.reply({ content: 'Event not found.', ephemeral: true });
+          const count = db.events.listParticipants(interaction.guildId, event.id).length;
+          const status = event.status.replaceAll('_', ' ');
+          const description = [
+            event.description || 'No description provided.',
+            '',
+            '**Status:** ' + status,
+            '**Format:** ' + event.event_type.replaceAll('_', ' '),
+            '**Registration:** ' + count + '/' + event.capacity,
+            event.rules ? '**Rules:**\\n' + event.rules.slice(0, 900) : ''
+          ].filter(Boolean).join('\\n');
+          return interaction.reply({ embeds: [new EmbedBuilder().setColor(db.accentColor(interaction.guildId)).setTitle(event.name + ' · Event #' + event.id).setDescription(description).setTimestamp(new Date(event.created_at))] });
+        }
+        if (!events.length) return interaction.reply({ content: 'There are no upcoming or active events in this server.' });
+        const description = events.slice(0, 10).map(event => {
+          const count = db.events.listParticipants(interaction.guildId, event.id).length;
+          return '**#' + event.id + ' · ' + event.name + '**\\n' + event.status.replaceAll('_', ' ') + ' · ' + count + '/' + event.capacity + ' registered';
+        }).join('\\n\\n');
+        return interaction.reply({ embeds: [new EmbedBuilder().setColor(db.accentColor(interaction.guildId)).setTitle('📅 Server Events').setDescription(description).setFooter({ text: 'Use /event info event_id:<ID> for full details.' })] });
+      }
+
       if (interaction.isChatInputCommand() && interaction.commandName === 'guild') {
         if (!interaction.guild || !interaction.guildId) return interaction.reply({ content: 'The guild menu only works inside a server.', ephemeral: true });
         return interaction.reply({ embeds: [guildMenuEmbed(db, interaction.guild, interaction.user.id)], components: guildMenuRows() });
