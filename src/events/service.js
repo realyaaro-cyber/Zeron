@@ -162,7 +162,7 @@ function createEventService(db) {
       if (!statuses) return db.prepare('SELECT * FROM events WHERE guild_id = ? ORDER BY created_at DESC').all(String(guildId));
       const valid = statuses.filter(status => EVENT_STATUSES.has(status));
       if (!valid.length) return [];
-      return db.prepare(`SELECT * FROM events WHERE guild_id = ? AND status IN (\${valid.map(() => '?').join(',')}) ORDER BY created_at DESC`)
+      return db.prepare(`SELECT * FROM events WHERE guild_id = ? AND status IN (${valid.map(() => '?').join(',')}) ORDER BY created_at DESC`)
         .all(String(guildId), ...valid);
     },
 
@@ -188,7 +188,7 @@ function createEventService(db) {
         const active = db.prepare(`SELECT e.id, e.name FROM event_participants p
           JOIN events e ON e.id = p.event_id
           WHERE p.guild_id = ? AND p.user_id = ? AND p.status = 'registered'
-          AND e.status IN (\${ACTIVE_STATUSES.map(() => '?').join(',')}) LIMIT 1`)
+          AND e.status IN (${ACTIVE_STATUSES.map(() => '?').join(',')}) LIMIT 1`)
           .get(String(guildId), String(userId), ...ACTIVE_STATUSES);
         if (active) return { ok: false, reason: 'already_in_event', event: active };
         const count = db.prepare("SELECT COUNT(*) AS count FROM event_participants WHERE event_id = ? AND status = 'registered'")
