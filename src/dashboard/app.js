@@ -1716,7 +1716,7 @@ tbody tr:hover{background:#5bbfff0b}
     if (!isAdmin && !events.length) return res.status(403).json({ error: 'You are not assigned to any events in this server.' });
     const fetchedChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
     const channels = [...fetchedChannels.values()]
-      .filter(channel => [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type))
+      .filter(channel => channel && [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type))
       .map(channel => ({ id: channel.id, name: channel.name }))
       .sort((a, b) => a.name.localeCompare(b.name));
     res.json({
@@ -1771,7 +1771,7 @@ tbody tr:hover{background:#5bbfff0b}
       staff: db.events.listStaff(req.guild.id, event.id),
       activity: db.events.getActivity(req.guild.id, event.id),
       channels: [...(await req.guild.channels.fetch().catch(() => req.guild.channels.cache)).values()]
-        .filter(channel => [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type))
+        .filter(channel => channel && [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type))
         .map(channel => ({ id: channel.id, name: channel.name })),
       isAdmin: req.eventAdmin,
       staffRoles: req.eventRoles
