@@ -398,6 +398,27 @@ function createEventService(db) {
       return Number(result.lastInsertRowid);
     },
 
+    deleteCompletedEvent(guildId, eventId) {
+      return db.transaction(() => {
+        const event = getEvent(guildId, eventId);
+        if (!event) throw new Error('Event not found.');
+        if (event.status !== 'completed') throw new Error('Only completed events can be deleted.');
+        const id = Number(eventId);
+        const serverId = String(guildId);
+        db.prepare('DELETE FROM event_scores WHERE guild_id = ? AND event_id = ?').run(serverId, id);
+        db.prepare('DELETE FROM event_matches WHERE guild_id = ? AND event_id = ?').run(serverId, id);
+        db.prepare('DELETE FROM event_participants WHERE guild_id = ? AND event_id = ?').run(serverId, id);
+        db.prepare('DELETE FROM event_teams WHERE guild_id = ? AND event_id = ?').run(serverId, id);
+        db.prepare('DELETE FROM event_rewards WHERE guild_id = ? AND event_id = ?').run(serverId, id);
+        db.prepare('DELETE FROM event_staff WHERE guild_id = ? AND event_id = ?').run(serverId, id);
+        db.prepare('DELETE FROM event_announcements WHERE guild_id = ? AND event_id = ?').run(serverId, id);
+        db.prepare('DELETE FROM event_activity WHERE guild_id = ? AND event_id = ?').run(serverId, id);
+        const deleted = db.prepare("DELETE FROM events WHERE guild_id = ? AND id = ? AND status = 'completed'").run(serverId, id);
+        if (!deleted.changes) throw new Error('Completed event could not be deleted.');
+        return { id, name: event.name };
+      })();
+    },
+
     getActivity(guildId, eventId, limit = 50) {
       return db.prepare('SELECT * FROM event_activity WHERE guild_id = ? AND event_id = ? ORDER BY created_at DESC LIMIT ?')
         .all(String(guildId), Number(eventId), Math.max(1, Math.min(200, Number(limit) || 50)));

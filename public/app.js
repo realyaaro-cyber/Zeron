@@ -1502,6 +1502,9 @@ async function renderEvents(){
           <button class="btn" type="button" data-event-view="${event.id}">Manage →</button>
         </div>
       </article>`).join(''):'<div class="panel card empty"><h3>No events yet</h3><p>Create your first event below. Events begin as drafts until registration is opened.</p></div>';
+    const channelOptions=data.channels.length
+      ? data.channels.map(channel=>`<option value="${channel.id}">#${escapeHtml(channel.name)}</option>`).join('')
+      : '<option value="" disabled selected>No text channels found — check ZERON channel access</option>';
     const createForm=data.isAdmin?`
       <div class="panel card" style="margin-bottom:18px">
         <div class="eyebrow">COMMUNITY · EVENTS</div><h3>Create an event</h3>
@@ -1512,11 +1515,11 @@ async function renderEvents(){
               <option value="1v1_tournament">1v1 Tournament</option><option value="team_vs_team">Team vs Team</option><option value="free_for_all">Free-for-All</option><option value="custom">Custom Event</option>
             </select></div>
             <div class="field"><label for="event-capacity">Player capacity</label><input id="event-capacity" name="capacity" type="number" min="2" max="1000" value="32" required></div>
-            <div class="field"><label for="event-announcement-channel">Announcement channel</label><select id="event-announcement-channel" name="announcementChannelId" required>${data.channels.map(channel=>`<option value="${channel.id}">#${escapeHtml(channel.name)}</option>`).join('')}</select><small class="muted">ZERON will post every event update in this channel.</small></div>
+            <div class="field"><label for="event-announcement-channel">Announcement channel</label><select id="event-announcement-channel" name="announcementChannelId" required><option value="">— Choose an announcement channel —</option>${channelOptions}</select><small class="muted">ZERON will post every event update in this channel.</small></div>
             <div class="field"><label for="event-description">Description</label><textarea id="event-description" name="description" maxlength="1500" rows="3" placeholder="What is this event about?"></textarea></div>
             <div class="field"><label for="event-rules">Rules</label><textarea id="event-rules" name="rules" maxlength="4000" rows="4" placeholder="Add the event rules…"></textarea></div>
           </div>
-          <button class="btn primary" type="submit">Create draft event</button>
+          <button class="btn primary" type="submit" ${data.channels.length?'':'disabled'}>Create draft event</button>
         </form>
       </div>`: '';
     content.innerHTML=`<div class="panel card" style="margin-bottom:18px"><div class="eyebrow">ZERON · COMMUNITY</div><h2 style="margin:5px 0">Event Management</h2><p class="muted" style="margin:0">${data.isAdmin?'Create and manage events for this server.':'You can manage only the events where you have been assigned as staff.'}</p></div>${createForm}<div class="section-head"><div><h3>Events</h3><p class="muted">Drafts, registration, live events and history.</p></div></div>${eventCards}`;
@@ -1551,6 +1554,9 @@ async function renderEventDetails(eventId){
     const staff=data.staff.length?data.staff.map(person=>`<div class="rr-row"><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="rw-level-badge">${escapeHtml(person.role)}</span>${data.isAdmin?`<button type="button" class="btn" data-staff-remove="${escapeHtml(person.user_id)}" data-staff-role="${escapeHtml(person.role)}">Remove</button>`:''}</div>`).join(''):'<p class="muted">No event staff assigned.</p>';
     const staffTools=data.isAdmin?`<div style="margin-top:14px"><div class="field"><label for="event-staff-search">Find a server member</label><input id="event-staff-search" maxlength="32" placeholder="Search username or server nickname"><div id="event-staff-results" style="display:grid;gap:6px;margin-top:8px"></div></div><div class="field"><label for="event-staff-role">Staff role</label><select id="event-staff-role"><option value="host">Event Host</option><option value="referee">Referee</option><option value="scorekeeper">Scorekeeper</option></select></div><p class="muted">Event staff can access only the events they are assigned to.</p></div>`:'';
     const announcementTools=`<div class="panel card" style="margin-bottom:14px"><h3>Automatic announcements</h3><p class="muted">Every event update is posted automatically in <strong>#${escapeHtml(data.channels.find(channel=>channel.id===event.announcement_channel_id)?.name||'selected channel')}</strong>. Round results are announced after the full round is complete.</p></div>`;
+    const completedEventTools=data.isAdmin&&event.status==='completed'
+      ? `<div class="panel card" style="margin-bottom:14px"><h3>Manage completed event</h3><p class="muted">Delete this completed event and its participants, matches, scores, staff assignments and activity history.</p><button type="button" class="btn" id="event-delete-completed">Delete completed event</button></div>`
+      : '';
     const activity=data.activity.length?data.activity.map(item=>`<div class="rr-row"><span class="rr-info">${escapeHtml(item.action.replaceAll('_',' '))}</span><small class="muted">${new Date(item.created_at).toLocaleString()}</small></div>`).join(''):'<p class="muted">No activity recorded yet.</p>';
 
     let bracketTools='';
@@ -1614,8 +1620,24 @@ async function renderEventDetails(eventId){
       ${matchesPanel}
       <div class="panel card" style="margin-bottom:14px"><h3>Event staff</h3>${staff}${staffTools}</div>
       ${announcementTools}
+      ${completedEventTools}
       <div class="panel card"><h3>Activity log</h3>${activity}</div>`;
     document.getElementById('event-back')?.addEventListener('click',renderEvents);
+    document.getElementById('event-delete-completed')?.addEventListener('click',async buttonEvent=>{
+      const button=buttonEvent.currentTarget;
+      if(!window.confirm(`Delete completed event "${event.name}"? This also deletes its participants, matches, scores, staff assignments and activity history. This cannot be undone.`)) return;
+      button.disabled=true;
+      button.textContent='Deleting…';
+      try{
+        await api(`/api/guild/${currentGuild}/events/${eventId}`,{method:'DELETE'});
+        toast('Completed event deleted.');
+        await renderEvents();
+      }catch(error){
+        toast(error.message,true);
+        button.disabled=false;
+        button.textContent='Delete completed event';
+      }
+    });
 
     document.getElementById('event-generate-bracket')?.addEventListener('click',async buttonEvent=>{
       const button=buttonEvent.currentTarget;
