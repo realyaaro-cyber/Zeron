@@ -4,6 +4,7 @@ const path = require('node:path');
 const { createClient } = require('./bot/client');
 const { initializeDatabase } = require('./database/db');
 const { createDashboard } = require('./dashboard/app');
+const { createEventService } = require('./events/service');
 
 const required = ['DISCORD_TOKEN', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET', 'DISCORD_REDIRECT_URI', 'BASE_URL', 'SESSION_SECRET'];
 const missing = required.filter((key) => !process.env[key]);
@@ -19,6 +20,7 @@ if (process.env.SESSION_SECRET.length < 32) {
 const dbPath = path.resolve(process.env.DATABASE_PATH || './data/zeron.sqlite');
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 const db = initializeDatabase(dbPath);
+db.events = createEventService(db);
 const client = createClient(db);
 const app = createDashboard({ db, client });
 const port = Number(process.env.PORT || 3000);

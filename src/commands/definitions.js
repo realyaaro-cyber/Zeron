@@ -173,6 +173,13 @@ const commands = [
   new SlashCommandBuilder().setName('guild')
     .setDescription('Open the ZERON Guild menu: create, join, or war with guilds.'),
 
+  new SlashCommandBuilder().setName('event')
+    .setDescription('Join an event or view event information.')
+    .addSubcommand(sub => sub.setName('join').setDescription('Register for an event that is accepting participants.')
+      .addIntegerOption(o => o.setName('event_id').setDescription('Event ID (optional if only one event is open)').setMinValue(1).setRequired(false)))
+    .addSubcommand(sub => sub.setName('info').setDescription('View event details and registration status.')
+      .addIntegerOption(o => o.setName('event_id').setDescription('Event ID (optional)').setMinValue(1).setRequired(false))),
+
   new SlashCommandBuilder().setName('fish')
     .setDescription('Catch fish, finish daily quests, and sell your fishing inventory.'),
   new SlashCommandBuilder().setName('play')

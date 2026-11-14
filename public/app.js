@@ -9,6 +9,7 @@ const pageInfo = {
  leveling:['XP & leveling','Reward participation and keep your community active.'],
  rewards:['Level rewards','Give roles automatically as members level up.'],
  announcements:['Announcements','Schedule messages in each server\'s own time zone.'],
+ events:['Event Management','Create events, manage registration, and track participants and staff.'],
  'my-rank':['My rank card','Pick a background for your /rank card.'],
  'embed-builder':['Embed builder','Build an embed, add a divider with --- and an optional image.'],
  'jail':['Jail','Pick the role /jail gives. Only the server owner can use /jail and /unjail.'],
@@ -306,6 +307,7 @@ async function renderTestingLab(){
 }
 
 async function renderPage(page){if(typeof nxDiscardCheck==='function'&&!nxDiscardCheck())return;activePage=page;if(page!=='overview')content.classList.remove('ov-layout-split-preview');nxRenderSideServer();(guildSelect.closest('.nx-select-wrap')||guildSelect).style.display=page==='bot-status'?'none':'';navButtons.forEach(b=>b.classList.toggle('active',b.dataset.page===page));$('#page-title').innerHTML=`${pageInfo[page][0]}<span>.</span>`;$('#page-desc').textContent=pageInfo[page][1];if(page==='my-rank'){await renderMyRank();return;}if(page==='overview'){try{await renderOverview()}catch(e){content.innerHTML=`<div class="panel card empty"><h3>Could not load the dashboard</h3><p>${escapeHtml(e&&e.message?e.message:'An unexpected error occurred.')}</p><button type="button" class="btn primary" onclick="location.reload()">Reload dashboard</button></div>`;}return}if(page==='servers'){renderServers();return}if(!me){content.innerHTML=`<div class="panel card empty"><div class="empty-icon">⌁</div><h3>Connect your Discord account</h3><p>Sign in to access your servers and manage ZERON settings.</p><button class="btn primary" data-action="connect-discord">Connect Discord →</button></div>`;return}if(!currentGuild&&page!=='bot-status'){noGuild();return}
+if(page==='events'){await renderEvents();return}
 try{await loadGuildData()}catch(e){content.innerHTML=`<div class="panel card empty"><h3>Could not load server</h3><p>${escapeHtml(e.message)}</p></div>`;return}
 if(page==='channels')content.innerHTML=panel('Channel routing','Pick channels for each bot module. A private channel remains private only when its Discord permission overwrites are configured correctly.',`<div class="form-grid">${channelField('Welcome channel','welcome_channel_id')}${channelField('Moderation log channel','mod_log_channel_id')}${channelField('Bot log channel','bot_log_channel_id')}${channelField('Announcement channel','announcement_channel_id')}${channelField('XP / level-up channel','xp_channel_id')}${channelField('Personal / private channel','personal_channel_id')}</div><div class="muted" style="font-size:11px;margin:0 0 18px">Only text and announcement channels from this server are listed. ZERON does not automatically change channel privacy.</div>`);
 else if(page==='welcome')content.innerHTML=panel('Welcome experience','Use {user}, {username}, and {server} placeholders. The message is sent when a new member joins.',`${toggle('Enable welcome messages','Send a welcome when a member joins.','welcome_enabled',settings.welcome_enabled)}<div style="margin-top:18px">${channelField('Destination channel','welcome_channel_id')}<div class="field"><label for="welcome_message">Welcome message</label><textarea id="welcome_message" name="welcome_message">${escapeHtml(settings.welcome_message)}</textarea><small class="muted">Write --- on its own line to add a divider.</small></div></div>`);
@@ -1481,6 +1483,129 @@ async function renderBirthdays(){
   backdrop.addEventListener('click',()=>setOpen(false));
   sidebar.addEventListener('click',e=>{if(e.target.closest('.nav'))setOpen(false);});
 })();
+
+/* ZERON: Event Management */
+async function renderEvents(){
+  content.innerHTML='<div class="panel card"><p class="muted">Loading events…</p></div>';
+  try{
+    const data=await api(`/api/guild/${currentGuild}/events`);
+    const statusLabel=value=>String(value||'').replaceAll('_',' ');
+    const eventCards=data.events.length?data.events.map(event=>`
+      <article class="panel card" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap">
+          <div style="min-width:0;flex:1">
+            <div class="eyebrow">EVENT #${event.id} · ${escapeHtml(event.event_type.replaceAll('_',' '))}</div>
+            <h3 style="margin:5px 0 7px">${escapeHtml(event.name)}</h3>
+            <p class="muted" style="margin:0">${escapeHtml(event.description||'No description provided.')}</p>
+            <div class="muted" style="font-size:12px;margin-top:10px">${escapeHtml(statusLabel(event.status))} · ${event.participantCount}/${event.capacity} participants</div>
+          </div>
+          <button class="btn" type="button" data-event-view="${event.id}">Manage →</button>
+        </div>
+      </article>`).join(''):'<div class="panel card empty"><h3>No events yet</h3><p>Create your first event below. Events begin as drafts until registration is opened.</p></div>';
+    const createForm=data.isAdmin?`
+      <div class="panel card" style="margin-bottom:18px">
+        <div class="eyebrow">COMMUNITY · EVENTS</div><h3>Create an event</h3>
+        <form id="event-create-form">
+          <div class="form-grid">
+            <div class="field"><label for="event-name">Event name</label><input id="event-name" name="name" maxlength="80" minlength="3" required placeholder="Summer 1v1 Tournament"></div>
+            <div class="field"><label for="event-type">Format</label><select id="event-type" name="type" required>
+              <option value="1v1_tournament">1v1 Tournament</option><option value="team_vs_team">Team vs Team</option><option value="free_for_all">Free-for-All</option><option value="custom">Custom Event</option>
+            </select></div>
+            <div class="field"><label for="event-capacity">Player capacity</label><input id="event-capacity" name="capacity" type="number" min="2" max="1000" value="32" required></div>
+            <div class="field"><label for="event-description">Description</label><textarea id="event-description" name="description" maxlength="1500" rows="3" placeholder="What is this event about?"></textarea></div>
+            <div class="field"><label for="event-rules">Rules</label><textarea id="event-rules" name="rules" maxlength="4000" rows="4" placeholder="Add the event rules…"></textarea></div>
+          </div>
+          <button class="btn primary" type="submit">Create draft event</button>
+        </form>
+      </div>`: '';
+    content.innerHTML=`<div class="panel card" style="margin-bottom:18px"><div class="eyebrow">ZERON · COMMUNITY</div><h2 style="margin:5px 0">Event Management</h2><p class="muted" style="margin:0">${data.isAdmin?'Create and manage events for this server.':'You can manage only the events where you have been assigned as staff.'}</p></div>${createForm}<div class="section-head"><div><h3>Events</h3><p class="muted">Drafts, registration, live events and history.</p></div></div>${eventCards}`;
+    const form=document.getElementById('event-create-form');
+    form?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const button=form.querySelector('button[type="submit"]');
+      const payload={name:form.elements.namedItem('name').value.trim(),type:form.elements.namedItem('type').value,capacity:Number(form.elements.namedItem('capacity').value),description:form.elements.namedItem('description').value,rules:form.elements.namedItem('rules').value};
+      button.disabled=true;button.textContent='Creating…';
+      try{await api(`/api/guild/${currentGuild}/events`,{method:'POST',body:JSON.stringify(payload)});toast('Draft event created.');await renderEvents();}
+      catch(error){toast(error.message,true);button.disabled=false;button.textContent='Create draft event';}
+    });
+    content.querySelectorAll('[data-event-view]').forEach(button=>button.addEventListener('click',()=>renderEventDetails(button.dataset.eventView)));
+  }catch(error){
+    content.innerHTML=`<div class="panel card empty"><h3>Could not load Event Management</h3><p>${escapeHtml(error.message)}</p></div>`;
+  }
+}
+
+async function renderEventDetails(eventId){
+  content.innerHTML='<div class="panel card"><p class="muted">Loading event details…</p></div>';
+  try{
+    const data=await api(`/api/guild/${currentGuild}/events/${eventId}`);
+    const event=data.event;
+    const canHost=data.isAdmin||data.staffRoles.includes('host');
+    const transitions={draft:['registration_open','cancelled'],registration_open:['registration_locked','cancelled'],registration_locked:['preparing','cancelled'],preparing:['active','cancelled'],active:['paused','completed','cancelled'],paused:['active','cancelled'],completed:[],cancelled:[]};
+    const actions=canHost?(transitions[event.status]||[]).map(status=>`<button type="button" class="btn ${status==='completed'?'primary':''}" data-event-status="${status}">${status==='registration_open'?'Open registration':status.replaceAll('_',' ')}</button>`).join(''):'';
+    const participants=data.participants.length?data.participants.map((person,index)=>`<div class="rr-row"><span class="rw-level-badge">${index+1}</span><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="muted">${new Date(person.joined_at).toLocaleDateString()}</span></div>`).join(''):'<p class="muted">No participants registered yet.</p>';
+    const staff=data.staff.length?data.staff.map(person=>`<div class="rr-row"><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="rw-level-badge">${escapeHtml(person.role)}</span>${data.isAdmin?`<button type="button" class="btn" data-staff-remove="${escapeHtml(person.user_id)}" data-staff-role="${escapeHtml(person.role)}">Remove</button>`:''}</div>`).join(''):'<p class="muted">No event staff assigned.</p>';
+    const staffTools=data.isAdmin?`<div style="margin-top:14px"><div class="field"><label for="event-staff-search">Find a server member</label><input id="event-staff-search" maxlength="32" placeholder="Search username or server nickname"><div id="event-staff-results" style="display:grid;gap:6px;margin-top:8px"></div></div><div class="field"><label for="event-staff-role">Staff role</label><select id="event-staff-role"><option value="host">Event Host</option><option value="referee">Referee</option><option value="scorekeeper">Scorekeeper</option></select></div><p class="muted">Event staff can access only the events they are assigned to.</p></div>`:'';
+    const announcementTools=canHost?`<div class="panel card" style="margin-bottom:14px"><h3>Publish an event announcement</h3><div class="field"><label for="event-announcement-channel">Destination channel</label><select id="event-announcement-channel">${data.channels.map(channel=>`<option value="${channel.id}">#${escapeHtml(channel.name)}</option>`).join('')}</select></div><div class="field"><label for="event-announcement-type">Announcement type</label><select id="event-announcement-type"><option value="general">General update</option><option value="registration">Registration update</option><option value="schedule">Schedule update</option><option value="results">Results</option></select></div><div class="field"><label for="event-announcement-content">Message</label><textarea id="event-announcement-content" maxlength="2000" rows="4" placeholder="Write the announcement for your members…"></textarea></div><button type="button" class="btn primary" id="event-announcement-publish">Publish announcement</button><p class="muted">Announcements are published only when a staff member presses this button.</p></div>`:'';
+    const activity=data.activity.length?data.activity.map(item=>`<div class="rr-row"><span class="rr-info">${escapeHtml(item.action.replaceAll('_',' '))}</span><small class="muted">${new Date(item.created_at).toLocaleString()}</small></div>`).join(''):'<p class="muted">No activity recorded yet.</p>';
+    content.innerHTML=`
+      <div class="panel card" style="margin-bottom:14px">
+        <button type="button" class="btn" id="event-back">← All events</button>
+        <div class="eyebrow" style="margin-top:16px">EVENT #${event.id} · ${escapeHtml(event.event_type.replaceAll('_',' '))}</div>
+        <h2 style="margin:5px 0">${escapeHtml(event.name)}</h2>
+        <p class="muted">${escapeHtml(event.description||'No description provided.')}</p>
+        <div class="stats" style="margin:18px 0"><div class="stat"><div class="stat-label">STATUS</div><div class="stat-value" style="font-size:18px">${escapeHtml(event.status.replaceAll('_',' '))}</div></div><div class="stat"><div class="stat-label">REGISTERED</div><div class="stat-value">${data.participants.length}/${event.capacity}</div></div><div class="stat"><div class="stat-label">STAFF</div><div class="stat-value">${data.staff.length}</div></div></div>
+        ${actions?'<div style="display:flex;gap:8px;flex-wrap:wrap">'+actions+'</div>':''}
+      </div>
+      <div class="panel card" style="margin-bottom:14px"><h3>Rules</h3><p class="muted" style="white-space:pre-wrap">${escapeHtml(event.rules||'No rules have been added.')}</p></div>
+      <div class="panel card" style="margin-bottom:14px"><h3>Participants</h3>${participants}</div>
+      <div class="panel card" style="margin-bottom:14px"><h3>Event staff</h3>${staff}${staffTools}</div>
+      ${announcementTools}
+      <div class="panel card"><h3>Activity log</h3>${activity}</div>`;
+    document.getElementById('event-back')?.addEventListener('click',renderEvents);
+    document.getElementById('event-announcement-publish')?.addEventListener('click',async buttonEvent=>{
+      const button=buttonEvent.currentTarget;
+      const channelId=document.getElementById('event-announcement-channel').value;
+      const type=document.getElementById('event-announcement-type').value;
+      const message=document.getElementById('event-announcement-content').value.trim();
+      if(!message)return toast('Write an announcement first.',true);
+      button.disabled=true;button.textContent='Publishing…';
+      try{await api(`/api/guild/${currentGuild}/events/${eventId}/announcements`,{method:'POST',body:JSON.stringify({channelId,type,content:message})});toast('Event announcement published.');await renderEventDetails(eventId);}
+      catch(error){toast(error.message,true);button.disabled=false;button.textContent='Publish announcement';}
+    });
+
+    const staffSearch=document.getElementById('event-staff-search');
+    const staffResults=document.getElementById('event-staff-results');
+    let staffSearchTimer;
+    staffSearch?.addEventListener('input',()=>{
+      clearTimeout(staffSearchTimer);
+      const query=staffSearch.value.trim();
+      if(query.length<2){staffResults.innerHTML='';return;}
+      staffSearchTimer=setTimeout(async()=>{
+        try{
+          const result=await api(`/api/guild/${currentGuild}/events/members?q=${encodeURIComponent(query)}`);
+          staffResults.innerHTML=result.members.length?result.members.map(member=>`<button type="button" class="btn" data-staff-add="${escapeHtml(member.id)}">${escapeHtml(member.displayName)} · @${escapeHtml(member.username)}</button>`).join(''):'<small class="muted">No matching members found.</small>';
+          staffResults.querySelectorAll('[data-staff-add]').forEach(button=>button.addEventListener('click',async()=>{
+            const role=document.getElementById('event-staff-role').value;
+            button.disabled=true;
+            try{await api(`/api/guild/${currentGuild}/events/${eventId}/staff`,{method:'POST',body:JSON.stringify({userId:button.dataset.staffAdd,role})});toast('Event staff assigned.');await renderEventDetails(eventId);}
+            catch(error){toast(error.message,true);button.disabled=false;}
+          }));
+        }catch(error){staffResults.innerHTML=`<small class="muted">${escapeHtml(error.message)}</small>`;}
+      },250);
+    });
+    content.querySelectorAll('[data-staff-remove]').forEach(button=>button.addEventListener('click',async()=>{
+      button.disabled=true;
+      try{await api(`/api/guild/${currentGuild}/events/${eventId}/staff/${button.dataset.staffRemove}/${button.dataset.staffRole}`,{method:'DELETE'});toast('Event staff removed.');await renderEventDetails(eventId);}
+      catch(error){toast(error.message,true);button.disabled=false;}
+    }));
+
+    content.querySelectorAll('[data-event-status]').forEach(button=>button.addEventListener('click',async()=>{
+      const status=button.dataset.eventStatus;button.disabled=true;
+      try{await api(`/api/guild/${currentGuild}/events/${eventId}/status`,{method:'POST',body:JSON.stringify({status})});toast('Event status updated.');await renderEventDetails(eventId);}
+      catch(error){toast(error.message,true);button.disabled=false;}
+    }));
+  }catch(error){content.innerHTML=`<div class="panel card empty"><h3>Could not load event</h3><p>${escapeHtml(error.message)}</p><button class="btn" id="event-back">Back to events</button></div>`;document.getElementById('event-back')?.addEventListener('click',renderEvents);}
+}
 
 /* ZERON: giveaways */
 async function renderGiveaways(){

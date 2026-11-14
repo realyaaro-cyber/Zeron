@@ -71,6 +71,26 @@ function createDashboard({ db, client }) {
     req.guild = guild;
     next();
   }
+  function requireEventAccess(req, res, next) {
+    const guildId = String(req.params.guildId || '');
+    const eventId = Number(req.params.eventId || 0);
+    const oauthGuild = req.session.guilds?.find(g => g.id === guildId);
+    const guild = client.guilds.cache.get(guildId);
+    if (!oauthGuild || !guild || !db.events) {
+      return res.status(403).json({ error: 'You do not have access to this server, or ZERON is not installed there.' });
+    }
+    const permissions = BigInt(oauthGuild.permissions || '0');
+    const isAdmin = Boolean(permissions & PermissionFlagsBits.Administrator) || Boolean(permissions & PermissionFlagsBits.ManageGuild);
+    const roles = eventId ? db.events.getStaffRoles(guildId, eventId, req.session.user.id) : [];
+    if (!isAdmin && !roles.length) {
+      return res.status(403).json({ error: 'You are not assigned to this event.' });
+    }
+    req.guild = guild;
+    req.eventAdmin = isAdmin;
+    req.eventRoles = roles;
+    next();
+  }
+
   async function exchangeCode(code) {
     const response = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
@@ -1672,6 +1692,162 @@ tbody tr:hover{background:#5bbfff0b}
     }
   });
 
+
+  // Event Management API. General dashboard permissions remain unchanged.
+  app.get('/api/guild/:guildId/events', requireLogin, (req, res) => {
+    const guildId = String(req.params.guildId);
+    const oauthGuild = req.session.guilds?.find(g => g.id === guildId);
+    const guild = client.guilds.cache.get(guildId);
+    if (!oauthGuild || !guild || !db.events) return res.status(403).json({ error: 'You do not have access to this server, or ZERON is not installed there.' });
+    const permissions = BigInt(oauthGuild.permissions || '0');
+    const isAdmin = Boolean(permissions & PermissionFlagsBits.Administrator) || Boolean(permissions & PermissionFlagsBits.ManageGuild);
+    const events = isAdmin ? db.events.listEvents(guildId) : db.events.listStaffEvents(guildId, req.session.user.id);
+    if (!isAdmin && !events.length) return res.status(403).json({ error: 'You are not assigned to any events in this server.' });
+    const channels = guild.channels.cache
+      .filter(channel => [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type))
+      .map(channel => ({ id: channel.id, name: channel.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    res.json({
+      isAdmin,
+      events: events.map(event => ({
+        ...event,
+        participantCount: db.events.listParticipants(guildId, event.id).length
+      })),
+      channels
+    });
+  });
+
+  app.post('/api/guild/:guildId/events', requireLogin, requireGuild, (req, res) => {
+    try {
+      const event = db.events.createEvent(req.guild.id, req.session.user.id, req.body || {});
+      res.json({ ok: true, event });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not create event.' });
+    }
+  });
+
+  app.get('/api/guild/:guildId/events/members', requireLogin, requireGuild, async (req, res) => {
+    const query = String(req.query.q || '').trim();
+    if (query.length < 2 || query.length > 32) return res.json({ members: [] });
+    try {
+      const matches = await req.guild.members.search({ query, limit: 10 });
+      res.json({
+        members: [...matches.values()].map(member => ({
+          id: member.id,
+          username: member.user.username,
+          displayName: member.displayName
+        }))
+      });
+    } catch (error) {
+      res.status(400).json({ error: 'Could not search server members. Check the bot member access and try again.' });
+    }
+  });
+
+  app.get('/api/guild/:guildId/events/:eventId', requireLogin, requireEventAccess, (req, res) => {
+    const event = db.events.getEvent(req.guild.id, req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found.' });
+    res.json({
+      event,
+      participants: db.events.listParticipants(req.guild.id, event.id),
+      matches: db.events.listMatches(req.guild.id, event.id),
+      leaderboard: db.events.getScoreLeaderboard(req.guild.id, event.id),
+      staff: db.events.listStaff(req.guild.id, event.id),
+      activity: db.events.getActivity(req.guild.id, event.id),
+      channels: req.guild.channels.cache.filter(channel => [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)).map(channel => ({ id: channel.id, name: channel.name })),
+      isAdmin: req.eventAdmin,
+      staffRoles: req.eventRoles
+    });
+  });
+
+  app.post('/api/guild/:guildId/events/:eventId/registration', requireLogin, requireEventAccess, (req, res) => {
+    if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can open registration.' });
+    try {
+      const event = db.events.openRegistration(req.guild.id, req.params.eventId, req.session.user.id);
+      res.json({ ok: true, event });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not open registration.' });
+    }
+  });
+
+  app.post('/api/guild/:guildId/events/:eventId/status', requireLogin, requireEventAccess, (req, res) => {
+    if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can change event status.' });
+    try {
+      const event = db.events.setEventStatus(req.guild.id, req.params.eventId, String((req.body || {}).status || ''), req.session.user.id);
+      res.json({ ok: true, event });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not update event status.' });
+    }
+  });
+
+  app.post('/api/guild/:guildId/events/:eventId/staff', requireLogin, requireGuild, async (req, res) => {
+    try {
+      const body = req.body || {};
+      const userId = String(body.userId || '');
+      const role = String(body.role || '');
+      if (!/^\d{17,20}$/.test(userId)) return res.status(400).json({ error: 'Choose a valid Discord member.' });
+      const member = await req.guild.members.fetch(userId).catch(() => null);
+      if (!member) return res.status(400).json({ error: 'That user is not a member of this server.' });
+      db.events.assignStaff(req.guild.id, req.params.eventId, userId, role, req.session.user.id);
+      res.json({ ok: true, staff: db.events.listStaff(req.guild.id, req.params.eventId) });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not assign event staff.' });
+    }
+  });
+
+  app.post('/api/guild/:guildId/events/:eventId/bracket', requireLogin, requireEventAccess, (req, res) => {
+    if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can generate the bracket.' });
+    try {
+      const matches = db.events.createTournamentBracket(req.guild.id, req.params.eventId, req.session.user.id);
+      res.json({ ok: true, matches });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not generate the tournament bracket.' });
+    }
+  });
+
+  app.post('/api/guild/:guildId/events/:eventId/matches/:matchId/result', requireLogin, requireEventAccess, (req, res) => {
+    const allowed = req.eventAdmin || req.eventRoles.some(role => ['host', 'referee', 'scorekeeper'].includes(role));
+    if (!allowed) return res.status(403).json({ error: 'Only assigned event staff can record match results.' });
+    try {
+      const body = req.body || {};
+      const result = db.events.recordMatchResult(req.guild.id, req.params.eventId, req.params.matchId, body.scoreA, body.scoreB, req.session.user.id);
+      res.json({
+        ok: true,
+        result,
+        matches: db.events.listMatches(req.guild.id, req.params.eventId),
+        leaderboard: db.events.getScoreLeaderboard(req.guild.id, req.params.eventId)
+      });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not record the match result.' });
+    }
+  });
+
+  app.post('/api/guild/:guildId/events/:eventId/announcements', requireLogin, requireEventAccess, async (req, res) => {
+    if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can publish event announcements.' });
+    const body = req.body || {};
+    const channelId = String(body.channelId || '');
+    const content = String(body.content || '').trim();
+    const type = String(body.type || 'general');
+    const allowedTypes = new Set(['general', 'registration', 'schedule', 'results']);
+    const channel = req.guild.channels.cache.get(channelId);
+    if (!channel || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) {
+      return res.status(400).json({ error: 'Choose a text or announcement channel in this server.' });
+    }
+    if (!content || content.length > 2000) return res.status(400).json({ error: 'Announcement must be between 1 and 2000 characters.' });
+    if (!allowedTypes.has(type)) return res.status(400).json({ error: 'Choose a valid announcement type.' });
+    try {
+      const message = await channel.send({ content, allowedMentions: { parse: [] } });
+      const id = db.events.recordAnnouncement(req.guild.id, req.params.eventId, channel.id, message.id, type, req.session.user.id);
+      res.json({ ok: true, id, messageId: message.id, channelId: channel.id });
+    } catch (error) {
+      res.status(400).json({ error: 'Could not publish the announcement. Check ZERON channel permissions and try again.' });
+    }
+  });
+
+  app.delete('/api/guild/:guildId/events/:eventId/staff/:userId/:role', requireLogin, requireGuild, (req, res) => {
+    const removed = db.events.removeStaff(req.guild.id, req.params.eventId, req.params.userId, req.params.role, req.session.user.id);
+    if (!removed) return res.status(404).json({ error: 'That event staff assignment was not found.' });
+    res.json({ ok: true, staff: db.events.listStaff(req.guild.id, req.params.eventId) });
+  });
 
   app.use((err, req, res, next) => {
     console.error('Dashboard error:', err);
