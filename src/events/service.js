@@ -150,7 +150,7 @@ function createEventService(db) {
       if (!EVENT_TYPES.has(type)) throw new Error('Choose a valid event format.');
       if (!Number.isInteger(capacity) || capacity < 2 || capacity > 1000) throw new Error('Capacity must be between 2 and 1000.');
       const announcementChannelId = String(input.announcementChannelId || '');
-      if (!/^\\d{17,20}$/.test(announcementChannelId)) throw new Error('Choose an announcement channel for this event.');
+      if (!/^\d{17,20}$/.test(announcementChannelId)) throw new Error('Choose an announcement channel for this event.');
       const now = Date.now();
       const result = db.prepare(`INSERT INTO events
         (guild_id, name, description, event_type, status, capacity, rules, starts_at, created_by, created_at, updated_at, announcement_channel_id)
