@@ -1585,9 +1585,9 @@ async function renderEventDetails(eventId){
                 <strong>Match ${match.match_number}</strong>
                 <span class="pill">${complete?'Completed':'Pending'}</span>
               </div>
-              <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:12px;align-items:center">
-                <span>${escapeHtml(participantLabel(match.participant_a))}</span><strong>VS</strong>
-                <span>${escapeHtml(participantLabel(match.participant_b))}</span><span></span>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;margin-top:12px;align-items:center">
+                <span style="overflow-wrap:anywhere">${escapeHtml(participantLabel(match.participant_a))}</span><strong>VS</strong>
+                <span style="overflow-wrap:anywhere">${escapeHtml(participantLabel(match.participant_b))}</span>
               </div>
               ${complete?`<p class="muted" style="margin:10px 0 0">Winner: <strong>${escapeHtml(winner)}</strong></p>`:resultForm||'<p class="muted" style="margin:10px 0 0">Waiting for the event to become active or for assigned staff to enter the result.</p>'}
             </div>`;
