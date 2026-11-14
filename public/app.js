@@ -1523,7 +1523,7 @@ async function renderEvents(){
     form?.addEventListener('submit',async event=>{
       event.preventDefault();
       const button=form.querySelector('button[type="submit"]');
-      const payload={name:form.name.value.trim(),type:form.type.value,capacity:Number(form.capacity.value),description:form.description.value,rules:form.rules.value};
+      const payload={name:form.elements.namedItem('name').value.trim(),type:form.elements.namedItem('type').value,capacity:Number(form.elements.namedItem('capacity').value),description:form.elements.namedItem('description').value,rules:form.elements.namedItem('rules').value};
       button.disabled=true;button.textContent='Creating…';
       try{await api(\`/api/guild/\${currentGuild}/events\`,{method:'POST',body:JSON.stringify(payload)});toast('Draft event created.');await renderEvents();}
       catch(error){toast(error.message,true);button.disabled=false;button.textContent='Create draft event';}
