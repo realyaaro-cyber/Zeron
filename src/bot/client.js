@@ -3035,7 +3035,7 @@ const fishWaitMessages = new Map();
           : result.reason === 'full' ? 'This event has reached capacity.'
           : result.reason === 'closed' ? 'Registration for this event is closed.'
           : 'This event could not be found.';
-        if (message === 'You are registered for the event.' || message === 'You are already registered for this event.') {
+        if (message === 'You are registered for the event.' || message === 'You are already registered for this event.' || message === 'You are registered. Registration is now full and locked.') {
           const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
           return sendPlainReply({ content: message, flags: MessageFlags.Ephemeral });
         }
