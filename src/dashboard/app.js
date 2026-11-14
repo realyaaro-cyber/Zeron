@@ -1751,7 +1751,7 @@ tbody tr:hover{background:#5bbfff0b}
   }
 
   function escapeDiscordMarkdown(value) {
-    return String(value || '').replace(/[\\_*~|>]/g, '\\  // Event Management API. General dashboard permissions remain unchanged.');
+    return String(value || '').replaceAll('*', '＊').replaceAll('_', '＿').replaceAll('~', '～').replaceAll('|', '｜').replaceAll('>', '＞');
   }
 
   async function publishTournamentRoundAnnouncement(guild, event, roundNumber, actorId, championId = null) {
