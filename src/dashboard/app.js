@@ -1693,6 +1693,17 @@ tbody tr:hover{background:#5bbfff0b}
   });
 
 
+  async function publishAutomaticEventAnnouncement(guild, event, type, content, actorId) {
+    if (!event?.announcement_channel_id) return false;
+    try {
+      const channel = guild.channels.cache.get(String(event.announcement_channel_id)) || await guild.channels.fetch(String(event.announcement_channel_id)).catch(() => null);
+      if (!channel || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) return false;
+      const message = await channel.send({ content: String(content).slice(0, 2000), allowedMentions: { parse: [] } });
+      db.events.recordAnnouncement(guild.id, event.id, channel.id, message.id, type, String(actorId || '0'));
+      return true;
+    } catch (error) { console.error(`Automatic announcement failed for event ${event.id}:`, error.message); return false; }
+  }
+
   // Event Management API. General dashboard permissions remain unchanged.
   app.get('/api/guild/:guildId/events', requireLogin, (req, res) => {
     const guildId = String(req.params.guildId);
@@ -1719,6 +1730,9 @@ tbody tr:hover{background:#5bbfff0b}
 
   app.post('/api/guild/:guildId/events', requireLogin, requireGuild, (req, res) => {
     try {
+      const channelId = String(req.body?.announcementChannelId || '');
+      const channel = req.guild.channels.cache.get(channelId);
+      if (!/^\\d{17,20}$/.test(channelId) || !channel || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) return res.status(400).json({ error: 'Choose a valid announcement channel in this server.' });
       const event = db.events.createEvent(req.guild.id, req.session.user.id, req.body || {});
       res.json({ ok: true, event });
     } catch (error) {
@@ -1763,6 +1777,7 @@ tbody tr:hover{background:#5bbfff0b}
     if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can open registration.' });
     try {
       const event = db.events.openRegistration(req.guild.id, req.params.eventId, req.session.user.id);
+      publishAutomaticEventAnnouncement(req.guild, event, 'registration', `Registration is now open for ${event.name}. Use /event join to register.`, req.session.user.id);
       res.json({ ok: true, event });
     } catch (error) {
       res.status(400).json({ error: error.message || 'Could not open registration.' });
@@ -1772,7 +1787,10 @@ tbody tr:hover{background:#5bbfff0b}
   app.post('/api/guild/:guildId/events/:eventId/status', requireLogin, requireEventAccess, (req, res) => {
     if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can change event status.' });
     try {
+      const previous = db.events.getEvent(req.guild.id, req.params.eventId);
       const event = db.events.setEventStatus(req.guild.id, req.params.eventId, String((req.body || {}).status || ''), req.session.user.id);
+      const messages = { registration_locked: `Registration is now closed for ${event.name}.`, preparing: `${event.name} is preparing to begin.`, active: `${event.name} is now live.`, paused: `${event.name} has been paused by event staff.`, completed: `${event.name} has been marked as completed.`, cancelled: `${event.name} has been cancelled.` };
+      if (messages[event.status] && previous.status !== event.status) publishAutomaticEventAnnouncement(req.guild, event, 'status', messages[event.status], req.session.user.id);
       res.json({ ok: true, event });
     } catch (error) {
       res.status(400).json({ error: error.message || 'Could not update event status.' });
@@ -1798,6 +1816,8 @@ tbody tr:hover{background:#5bbfff0b}
     if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can generate the bracket.' });
     try {
       const matches = db.events.createTournamentBracket(req.guild.id, req.params.eventId, req.session.user.id);
+      const event = db.events.getEvent(req.guild.id, req.params.eventId);
+      publishAutomaticEventAnnouncement(req.guild, event, 'bracket', `The tournament bracket for ${event.name} has been generated. Round 1 is ready with ${matches.length} matches.`, req.session.user.id);
       res.json({ ok: true, matches });
     } catch (error) {
       res.status(400).json({ error: error.message || 'Could not generate the tournament bracket.' });
@@ -1810,6 +1830,9 @@ tbody tr:hover{background:#5bbfff0b}
     try {
       const body = req.body || {};
       const result = db.events.recordMatchResult(req.guild.id, req.params.eventId, req.params.matchId, body.scoreA, body.scoreB, req.session.user.id);
+      const event = db.events.getEvent(req.guild.id, req.params.eventId);
+      if (result.championId) publishAutomaticEventAnnouncement(req.guild, event, 'results', `${event.name} is complete. Champion: <@${result.championId}>.`, req.session.user.id);
+      else if (result.nextRound) publishAutomaticEventAnnouncement(req.guild, event, 'results', `All matches in Round ${result.nextRound - 1} of ${event.name} are complete. Round ${result.nextRound} is now ready.`, req.session.user.id);
       res.json({
         ok: true,
         result,
