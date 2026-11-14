@@ -1639,11 +1639,14 @@ async function renderEventDetails(eventId){
 
     content.innerHTML=`
       <div class="panel card" style="margin-bottom:14px">
-        <button type="button" class="btn" id="event-back">← All events</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <button type="button" class="btn" id="event-back">← All events</button>
+          <button type="button" class="btn" id="event-refresh">↻ Refresh</button>
+        </div>
         <div class="eyebrow" style="margin-top:16px">EVENT #${event.id} · ${escapeHtml(event.event_type.replaceAll('_',' '))}</div>
         <h2 style="margin:5px 0">${escapeHtml(event.name)}</h2>
         <div class="muted" style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(event.custom_message||event.description||'No custom announcement message.')}</div>
-        <div class="stats" style="margin:18px 0"><div class="stat"><div class="stat-label">STATUS</div><div class="stat-value" style="font-size:18px">${escapeHtml(event.status.replaceAll('_',' '))}</div></div><div class="stat"><div class="stat-label">REGISTERED</div><div class="stat-value">${data.participants.length}/${event.capacity}</div></div><div class="stat"><div class="stat-label">STAFF</div><div class="stat-value">${data.staff.length}</div></div></div>
+        <div class="stats" style="display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin:18px 0"><div class="stat"><div class="stat-label">STATUS</div><div class="stat-value" style="font-size:18px">${escapeHtml(event.status.replaceAll('_',' '))}</div></div><div class="stat"><div class="stat-label">REGISTERED</div><div class="stat-value">${data.participants.length}/${event.capacity}</div></div><div class="stat"><div class="stat-label">STAFF</div><div class="stat-value">${data.staff.length}</div></div></div>
         ${actions?'<div style="display:flex;gap:8px;flex-wrap:wrap">'+actions+'</div>':''}
       </div>
       <div class="panel card" style="margin-bottom:14px"><h3>Participants</h3>${participants}</div>
@@ -1654,6 +1657,12 @@ async function renderEventDetails(eventId){
       ${eventDeleteTools}
       <div class="panel card"><h3>Activity log</h3>${activity}</div>`;
     document.getElementById('event-back')?.addEventListener('click',renderEvents);
+    document.getElementById('event-refresh')?.addEventListener('click',async buttonEvent=>{
+      const button=buttonEvent.currentTarget;
+      button.disabled=true;
+      button.textContent='↻ Refreshing…';
+      await renderEventDetails(eventId);
+    });
     document.getElementById('event-delete')?.addEventListener('click',async buttonEvent=>{
       const button=buttonEvent.currentTarget;
       if(!window.confirm(`Delete event "${event.name}"? This also deletes its participants, matches, scores, staff assignments and activity history. This cannot be undone.`)) return;
