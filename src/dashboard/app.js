@@ -1749,6 +1749,8 @@ tbody tr:hover{background:#5bbfff0b}
     res.json({
       event,
       participants: db.events.listParticipants(req.guild.id, event.id),
+      matches: db.events.listMatches(req.guild.id, event.id),
+      leaderboard: db.events.getScoreLeaderboard(req.guild.id, event.id),
       staff: db.events.listStaff(req.guild.id, event.id),
       activity: db.events.getActivity(req.guild.id, event.id),
       channels: req.guild.channels.cache.filter(channel => [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)).map(channel => ({ id: channel.id, name: channel.name })),
@@ -1789,6 +1791,33 @@ tbody tr:hover{background:#5bbfff0b}
       res.json({ ok: true, staff: db.events.listStaff(req.guild.id, req.params.eventId) });
     } catch (error) {
       res.status(400).json({ error: error.message || 'Could not assign event staff.' });
+    }
+  });
+
+  app.post('/api/guild/:guildId/events/:eventId/bracket', requireLogin, requireEventAccess, (req, res) => {
+    if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can generate the bracket.' });
+    try {
+      const matches = db.events.createTournamentBracket(req.guild.id, req.params.eventId, req.session.user.id);
+      res.json({ ok: true, matches });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not generate the tournament bracket.' });
+    }
+  });
+
+  app.post('/api/guild/:guildId/events/:eventId/matches/:matchId/result', requireLogin, requireEventAccess, (req, res) => {
+    const allowed = req.eventAdmin || req.eventRoles.some(role => ['host', 'referee', 'scorekeeper'].includes(role));
+    if (!allowed) return res.status(403).json({ error: 'Only assigned event staff can record match results.' });
+    try {
+      const body = req.body || {};
+      const result = db.events.recordMatchResult(req.guild.id, req.params.eventId, req.params.matchId, body.scoreA, body.scoreB, req.session.user.id);
+      res.json({
+        ok: true,
+        result,
+        matches: db.events.listMatches(req.guild.id, req.params.eventId),
+        leaderboard: db.events.getScoreLeaderboard(req.guild.id, req.params.eventId)
+      });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not record the match result.' });
     }
   });
 
