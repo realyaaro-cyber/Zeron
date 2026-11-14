@@ -1751,6 +1751,7 @@ tbody tr:hover{background:#5bbfff0b}
       participants: db.events.listParticipants(req.guild.id, event.id),
       staff: db.events.listStaff(req.guild.id, event.id),
       activity: db.events.getActivity(req.guild.id, event.id),
+      channels: req.guild.channels.cache.filter(channel => [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)).map(channel => ({ id: channel.id, name: channel.name })),
       isAdmin: req.eventAdmin,
       staffRoles: req.eventRoles
     });
@@ -1788,6 +1789,28 @@ tbody tr:hover{background:#5bbfff0b}
       res.json({ ok: true, staff: db.events.listStaff(req.guild.id, req.params.eventId) });
     } catch (error) {
       res.status(400).json({ error: error.message || 'Could not assign event staff.' });
+    }
+  });
+
+  app.post('/api/guild/:guildId/events/:eventId/announcements', requireLogin, requireEventAccess, async (req, res) => {
+    if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can publish event announcements.' });
+    const body = req.body || {};
+    const channelId = String(body.channelId || '');
+    const content = String(body.content || '').trim();
+    const type = String(body.type || 'general');
+    const allowedTypes = new Set(['general', 'registration', 'schedule', 'results']);
+    const channel = req.guild.channels.cache.get(channelId);
+    if (!channel || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) {
+      return res.status(400).json({ error: 'Choose a text or announcement channel in this server.' });
+    }
+    if (!content || content.length > 2000) return res.status(400).json({ error: 'Announcement must be between 1 and 2000 characters.' });
+    if (!allowedTypes.has(type)) return res.status(400).json({ error: 'Choose a valid announcement type.' });
+    try {
+      const message = await channel.send({ content, allowedMentions: { parse: [] } });
+      const id = db.events.recordAnnouncement(req.guild.id, req.params.eventId, channel.id, message.id, type, req.session.user.id);
+      res.json({ ok: true, id, messageId: message.id, channelId: channel.id });
+    } catch (error) {
+      res.status(400).json({ error: 'Could not publish the announcement. Check ZERON channel permissions and try again.' });
     }
   });
 
