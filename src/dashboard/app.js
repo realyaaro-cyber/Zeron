@@ -1713,6 +1713,43 @@ tbody tr:hover{background:#5bbfff0b}
     } catch (error) { console.error(`Automatic announcement failed for event ${event.id}:`, error.message); return false; }
   }
 
+  async function publishEventRegistrationAnnouncement(guild, event, actorId) {
+    if (!event?.announcement_channel_id) return false;
+    try {
+      const channel = guild.channels.cache.get(String(event.announcement_channel_id)) || await guild.channels.fetch(String(event.announcement_channel_id)).catch(() => null);
+      if (!channel || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) return false;
+      const count = db.events.listParticipants(guild.id, event.id).length;
+      const customMessage = String(event.custom_message || event.description || '').trim();
+      const embed = new EmbedBuilder()
+        .setColor(db.accentColor(guild.id))
+        .setTitle(`🎉 ${event.name} — Registration Open`)
+        .setDescription(customMessage || 'Registration is now open. Select Register below to join this event.')
+        .addFields(
+          { name: 'Format', value: event.event_type.replaceAll('_', ' '), inline: true },
+          { name: 'Players', value: `${count}/${event.capacity}`, inline: true },
+          { name: 'Registration', value: '🟢 OPEN', inline: true }
+        )
+        .setFooter({ text: `ZERON Event #${event.id} · Registration Open` })
+        .setTimestamp();
+      const registerButton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`zeron_event_register:${guild.id}:${event.id}`)
+          .setLabel('Register')
+          .setStyle(ButtonStyle.Success)
+      );
+      const message = await channel.send(toV2Payload({
+        embeds: [embed],
+        components: [registerButton],
+        allowedMentions: { parse: [] }
+      }));
+      db.events.recordAnnouncement(guild.id, event.id, channel.id, message.id, 'registration', String(actorId || '0'));
+      return true;
+    } catch (error) {
+      console.error(`Event registration announcement failed for event ${event.id}:`, error.message);
+      return false;
+    }
+  }
+
   // Event Management API. General dashboard permissions remain unchanged.
   app.get('/api/guild/:guildId/events', requireLogin, async (req, res) => {
     const guildId = String(req.params.guildId);
@@ -1797,12 +1834,12 @@ tbody tr:hover{background:#5bbfff0b}
     }
   });
 
-  app.post('/api/guild/:guildId/events/:eventId/registration', requireLogin, requireEventAccess, (req, res) => {
+  app.post('/api/guild/:guildId/events/:eventId/registration', requireLogin, requireEventAccess, async (req, res) => {
     if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can open registration.' });
     try {
       const event = db.events.openRegistration(req.guild.id, req.params.eventId, req.session.user.id);
-      publishAutomaticEventAnnouncement(req.guild, event, 'registration', `Registration is now open for ${event.name}. Use /event join to register.`, req.session.user.id);
-      res.json({ ok: true, event });
+      const announcementSent = await publishEventRegistrationAnnouncement(req.guild, event, req.session.user.id);
+      res.json({ ok: true, event, announcementSent });
     } catch (error) {
       res.status(400).json({ error: error.message || 'Could not open registration.' });
     }
