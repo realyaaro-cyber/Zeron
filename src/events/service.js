@@ -425,11 +425,10 @@ function createEventService(db) {
       return Number(result.lastInsertRowid);
     },
 
-    deleteCompletedEvent(guildId, eventId) {
+    deleteEvent(guildId, eventId) {
       return db.transaction(() => {
         const event = getEvent(guildId, eventId);
         if (!event) throw new Error('Event not found.');
-        if (event.status !== 'completed') throw new Error('Only completed events can be deleted.');
         const id = Number(eventId);
         const serverId = String(guildId);
         db.prepare('DELETE FROM event_scores WHERE guild_id = ? AND event_id = ?').run(serverId, id);
@@ -440,8 +439,8 @@ function createEventService(db) {
         db.prepare('DELETE FROM event_staff WHERE guild_id = ? AND event_id = ?').run(serverId, id);
         db.prepare('DELETE FROM event_announcements WHERE guild_id = ? AND event_id = ?').run(serverId, id);
         db.prepare('DELETE FROM event_activity WHERE guild_id = ? AND event_id = ?').run(serverId, id);
-        const deleted = db.prepare("DELETE FROM events WHERE guild_id = ? AND id = ? AND status = 'completed'").run(serverId, id);
-        if (!deleted.changes) throw new Error('Completed event could not be deleted.');
+        const deleted = db.prepare('DELETE FROM events WHERE guild_id = ? AND id = ?').run(serverId, id);
+        if (!deleted.changes) throw new Error('Event could not be deleted.');
         return { id, name: event.name };
       })();
     },
