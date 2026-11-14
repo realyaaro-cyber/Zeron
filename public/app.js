@@ -1545,6 +1545,7 @@ async function renderEventDetails(eventId){
     const participants=data.participants.length?data.participants.map((person,index)=>`<div class="rr-row"><span class="rw-level-badge">${index+1}</span><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="muted">${new Date(person.joined_at).toLocaleDateString()}</span></div>`).join(''):'<p class="muted">No participants registered yet.</p>';
     const staff=data.staff.length?data.staff.map(person=>`<div class="rr-row"><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="rw-level-badge">${escapeHtml(person.role)}</span>${data.isAdmin?`<button type="button" class="btn" data-staff-remove="${escapeHtml(person.user_id)}" data-staff-role="${escapeHtml(person.role)}">Remove</button>`:''}</div>`).join(''):'<p class="muted">No event staff assigned.</p>';
     const staffTools=data.isAdmin?`<div style="margin-top:14px"><div class="field"><label for="event-staff-search">Find a server member</label><input id="event-staff-search" maxlength="32" placeholder="Search username or server nickname"><div id="event-staff-results" style="display:grid;gap:6px;margin-top:8px"></div></div><div class="field"><label for="event-staff-role">Staff role</label><select id="event-staff-role"><option value="host">Event Host</option><option value="referee">Referee</option><option value="scorekeeper">Scorekeeper</option></select></div><p class="muted">Event staff can access only the events they are assigned to.</p></div>`:'';
+    const announcementTools=canHost?`<div class="panel card" style="margin-bottom:14px"><h3>Publish an event announcement</h3><div class="field"><label for="event-announcement-channel">Destination channel</label><select id="event-announcement-channel">${data.channels.map(channel=>`<option value="${channel.id}">#${escapeHtml(channel.name)}</option>`).join('')}</select></div><div class="field"><label for="event-announcement-type">Announcement type</label><select id="event-announcement-type"><option value="general">General update</option><option value="registration">Registration update</option><option value="schedule">Schedule update</option><option value="results">Results</option></select></div><div class="field"><label for="event-announcement-content">Message</label><textarea id="event-announcement-content" maxlength="2000" rows="4" placeholder="Write the announcement for your members…"></textarea></div><button type="button" class="btn primary" id="event-announcement-publish">Publish announcement</button><p class="muted">Announcements are published only when a staff member presses this button.</p></div>`:'';
     const activity=data.activity.length?data.activity.map(item=>`<div class="rr-row"><span class="rr-info">${escapeHtml(item.action.replaceAll('_',' '))}</span><small class="muted">${new Date(item.created_at).toLocaleString()}</small></div>`).join(''):'<p class="muted">No activity recorded yet.</p>';
     content.innerHTML=`
       <div class="panel card" style="margin-bottom:14px">
@@ -1558,8 +1559,20 @@ async function renderEventDetails(eventId){
       <div class="panel card" style="margin-bottom:14px"><h3>Rules</h3><p class="muted" style="white-space:pre-wrap">${escapeHtml(event.rules||'No rules have been added.')}</p></div>
       <div class="panel card" style="margin-bottom:14px"><h3>Participants</h3>${participants}</div>
       <div class="panel card" style="margin-bottom:14px"><h3>Event staff</h3>${staff}${staffTools}</div>
+      ${announcementTools}
       <div class="panel card"><h3>Activity log</h3>${activity}</div>`;
     document.getElementById('event-back')?.addEventListener('click',renderEvents);
+    document.getElementById('event-announcement-publish')?.addEventListener('click',async buttonEvent=>{
+      const button=buttonEvent.currentTarget;
+      const channelId=document.getElementById('event-announcement-channel').value;
+      const type=document.getElementById('event-announcement-type').value;
+      const message=document.getElementById('event-announcement-content').value.trim();
+      if(!message)return toast('Write an announcement first.',true);
+      button.disabled=true;button.textContent='Publishing…';
+      try{await api(`/api/guild/${currentGuild}/events/${eventId}/announcements`,{method:'POST',body:JSON.stringify({channelId,type,content:message})});toast('Event announcement published.');await renderEventDetails(eventId);}
+      catch(error){toast(error.message,true);button.disabled=false;button.textContent='Publish announcement';}
+    });
+
     const staffSearch=document.getElementById('event-staff-search');
     const staffResults=document.getElementById('event-staff-results');
     let staffSearchTimer;
