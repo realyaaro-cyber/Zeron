@@ -255,7 +255,8 @@ function createEventService(db) {
     },
 
     canManageEvent(guildId, eventId, userId) {
-      return this.getStaffRoles(guildId, eventId, userId).length > 0;
+      return Boolean(db.prepare('SELECT 1 FROM event_staff WHERE guild_id = ? AND event_id = ? AND user_id = ? LIMIT 1')
+        .get(String(guildId), Number(eventId), String(userId)));
     },
 
     setEventStatus(guildId, eventId, status, actorId) {
