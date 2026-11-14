@@ -1540,13 +1540,64 @@ async function renderEventDetails(eventId){
     const data=await api(`/api/guild/${currentGuild}/events/${eventId}`);
     const event=data.event;
     const canHost=data.isAdmin||data.staffRoles.includes('host');
+    const canRecordResults=data.isAdmin||data.staffRoles.some(role=>['host','referee','scorekeeper'].includes(role));
+    const isTournament=event.event_type==='1v1_tournament';
+    const matches=Array.isArray(data.matches)?data.matches:[];
     const transitions={draft:['registration_open','cancelled'],registration_open:['registration_locked','cancelled'],registration_locked:['preparing','cancelled'],preparing:['active','cancelled'],active:['paused','completed','cancelled'],paused:['active','cancelled'],completed:[],cancelled:[]};
-    const actions=canHost?(transitions[event.status]||[]).map(status=>`<button type="button" class="btn ${status==='completed'?'primary':''}" data-event-status="${status}">${status==='registration_open'?'Open registration':status.replaceAll('_',' ')}</button>`).join(''):'';
+    const availableTransitions=(transitions[event.status]||[]).filter(status=>!(isTournament&&event.status==='registration_locked'&&status==='preparing'));
+    const actions=canHost?availableTransitions.map(status=>`<button type="button" class="btn ${status==='completed'?'primary':''}" data-event-status="${status}">${status==='registration_open'?'Open registration':status.replaceAll('_',' ')}</button>`).join(''):'';
     const participants=data.participants.length?data.participants.map((person,index)=>`<div class="rr-row"><span class="rw-level-badge">${index+1}</span><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="muted">${new Date(person.joined_at).toLocaleDateString()}</span></div>`).join(''):'<p class="muted">No participants registered yet.</p>';
     const staff=data.staff.length?data.staff.map(person=>`<div class="rr-row"><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="rw-level-badge">${escapeHtml(person.role)}</span>${data.isAdmin?`<button type="button" class="btn" data-staff-remove="${escapeHtml(person.user_id)}" data-staff-role="${escapeHtml(person.role)}">Remove</button>`:''}</div>`).join(''):'<p class="muted">No event staff assigned.</p>';
     const staffTools=data.isAdmin?`<div style="margin-top:14px"><div class="field"><label for="event-staff-search">Find a server member</label><input id="event-staff-search" maxlength="32" placeholder="Search username or server nickname"><div id="event-staff-results" style="display:grid;gap:6px;margin-top:8px"></div></div><div class="field"><label for="event-staff-role">Staff role</label><select id="event-staff-role"><option value="host">Event Host</option><option value="referee">Referee</option><option value="scorekeeper">Scorekeeper</option></select></div><p class="muted">Event staff can access only the events they are assigned to.</p></div>`:'';
     const announcementTools=canHost?`<div class="panel card" style="margin-bottom:14px"><h3>Publish an event announcement</h3><div class="field"><label for="event-announcement-channel">Destination channel</label><select id="event-announcement-channel">${data.channels.map(channel=>`<option value="${channel.id}">#${escapeHtml(channel.name)}</option>`).join('')}</select></div><div class="field"><label for="event-announcement-type">Announcement type</label><select id="event-announcement-type"><option value="general">General update</option><option value="registration">Registration update</option><option value="schedule">Schedule update</option><option value="results">Results</option></select></div><div class="field"><label for="event-announcement-content">Message</label><textarea id="event-announcement-content" maxlength="2000" rows="4" placeholder="Write the announcement for your members…"></textarea></div><button type="button" class="btn primary" id="event-announcement-publish">Publish announcement</button><p class="muted">Announcements are published only when a staff member presses this button.</p></div>`:'';
     const activity=data.activity.length?data.activity.map(item=>`<div class="rr-row"><span class="rr-info">${escapeHtml(item.action.replaceAll('_',' '))}</span><small class="muted">${new Date(item.created_at).toLocaleString()}</small></div>`).join(''):'<p class="muted">No activity recorded yet.</p>';
+
+    let bracketTools='';
+    let matchesPanel='';
+    if(isTournament){
+      if(!matches.length&&event.status==='registration_locked'){
+        bracketTools=canHost
+          ?'<div class="panel card" style="margin-bottom:14px"><h3>Tournament bracket</h3><p class="muted">Registration is locked. Generate the randomized single-elimination bracket to create the first round of matches.</p><button type="button" class="btn primary" id="event-generate-bracket">Generate bracket</button></div>'
+          :'<div class="panel card" style="margin-bottom:14px"><h3>Tournament bracket</h3><p class="muted">The event host needs to generate the bracket.</p></div>';
+      }else if(!matches.length){
+        bracketTools='<div class="panel card" style="margin-bottom:14px"><h3>Tournament bracket</h3><p class="muted">The bracket becomes available after registration is locked.</p></div>';
+      }
+      if(matches.length){
+        const rounds=[...new Set(matches.map(match=>Number(match.round_number)))].sort((a,b)=>a-b);
+        const participantLabel=id=>{
+          if(!id)return 'TBD';
+          const person=data.participants.find(item=>String(item.user_id)===String(id));
+          return person?String(person.user_id):String(id);
+        };
+        const roundHtml=rounds.map(round=>{
+          const roundMatches=matches.filter(match=>Number(match.round_number)===round);
+          const cards=roundMatches.map(match=>{
+            const complete=match.status==='completed';
+            const winner=match.winner_id?participantLabel(match.winner_id):'';
+            const resultForm=!complete&&event.status==='active'&&canRecordResults
+              ?`<form class="event-match-result" data-match-result="${match.id}" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) auto;gap:8px;align-items:end;margin-top:12px">
+                  <div class="field" style="margin:0"><label for="match-${match.id}-score-a">Score — Player A</label><input id="match-${match.id}-score-a" name="scoreA" type="number" min="0" max="1000000" step="1" required></div>
+                  <div class="field" style="margin:0"><label for="match-${match.id}-score-b">Score — Player B</label><input id="match-${match.id}-score-b" name="scoreB" type="number" min="0" max="1000000" step="1" required></div>
+                  <button class="btn primary" type="submit">Save result</button>
+                </form>`:'';
+            return `<div class="panel card" style="margin:0">
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+                <strong>Match ${match.match_number}</strong>
+                <span class="pill">${complete?'Completed':'Pending'}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;margin-top:12px;align-items:center">
+                <span style="overflow-wrap:anywhere">${escapeHtml(participantLabel(match.participant_a))}</span><strong>VS</strong>
+                <span style="overflow-wrap:anywhere">${escapeHtml(participantLabel(match.participant_b))}</span>
+              </div>
+              ${complete?`<p class="muted" style="margin:10px 0 0">Winner: <strong>${escapeHtml(winner)}</strong></p>`:resultForm||'<p class="muted" style="margin:10px 0 0">Waiting for the event to become active or for assigned staff to enter the result.</p>'}
+            </div>`;
+          }).join('');
+          return `<section style="margin-top:16px"><h4 style="margin:0 0 10px">Round ${round}</h4><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:10px">${cards}</div></section>`;
+        }).join('');
+        matchesPanel=`<div class="panel card" style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0">Tournament matches</h3><p class="muted" style="margin:5px 0 0">${matches.length} match(es) across ${rounds.length} round(s). Results advance winners automatically.</p></div></div>${roundHtml}</div>`;
+      }
+    }
+
     content.innerHTML=`
       <div class="panel card" style="margin-bottom:14px">
         <button type="button" class="btn" id="event-back">← All events</button>
@@ -1558,10 +1609,39 @@ async function renderEventDetails(eventId){
       </div>
       <div class="panel card" style="margin-bottom:14px"><h3>Rules</h3><p class="muted" style="white-space:pre-wrap">${escapeHtml(event.rules||'No rules have been added.')}</p></div>
       <div class="panel card" style="margin-bottom:14px"><h3>Participants</h3>${participants}</div>
+      ${bracketTools}
+      ${matchesPanel}
       <div class="panel card" style="margin-bottom:14px"><h3>Event staff</h3>${staff}${staffTools}</div>
       ${announcementTools}
       <div class="panel card"><h3>Activity log</h3>${activity}</div>`;
     document.getElementById('event-back')?.addEventListener('click',renderEvents);
+
+    document.getElementById('event-generate-bracket')?.addEventListener('click',async buttonEvent=>{
+      const button=buttonEvent.currentTarget;
+      button.disabled=true;button.textContent='Generating…';
+      try{
+        await api(`/api/guild/${currentGuild}/events/${eventId}/bracket`,{method:'POST',body:JSON.stringify({})});
+        toast('Tournament bracket generated.');
+        await renderEventDetails(eventId);
+      }catch(error){toast(error.message,true);button.disabled=false;button.textContent='Generate bracket';}
+    });
+
+    content.querySelectorAll('[data-match-result]').forEach(form=>{
+      form.addEventListener('submit',async submitEvent=>{
+        submitEvent.preventDefault();
+        const button=form.querySelector('button[type="submit"]');
+        const scoreA=Number(form.elements.namedItem('scoreA').value);
+        const scoreB=Number(form.elements.namedItem('scoreB').value);
+        if(scoreA===scoreB)return toast('A tied score needs to be resolved before saving the result.',true);
+        button.disabled=true;button.textContent='Saving…';
+        try{
+          await api(`/api/guild/${currentGuild}/events/${eventId}/matches/${form.dataset.matchResult}/result`,{method:'POST',body:JSON.stringify({scoreA,scoreB})});
+          toast('Match result saved.');
+          await renderEventDetails(eventId);
+        }catch(error){toast(error.message,true);button.disabled=false;button.textContent='Save result';}
+      });
+    });
+
     document.getElementById('event-announcement-publish')?.addEventListener('click',async buttonEvent=>{
       const button=buttonEvent.currentTarget;
       const channelId=document.getElementById('event-announcement-channel').value;
