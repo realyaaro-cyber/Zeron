@@ -2978,6 +2978,7 @@ const fishWaitMessages = new Map();
         }
         const eventId = Number(interaction.values[0]);
         const result = db.events.joinEvent(guildId, eventId, userId);
+        if (result.ok && result.locked) { const event = db.events.getEvent(guildId, eventId); const channel = event?.announcement_channel_id ? interaction.guild.channels.cache.get(event.announcement_channel_id) : null; if (channel) channel.send({ content: `Registration is now full and closed for ${event.name}.`, allowedMentions: { parse: [] } }).then(message => db.events.recordAnnouncement(guildId, eventId, channel.id, message.id, 'registration', userId)).catch(error => console.error('Event capacity announcement failed:', error.message)); }
         const message = result.ok
           ? (result.locked ? 'You are registered. The event has reached capacity and registration is now locked.' : 'You are registered for the event.')
           : result.reason === 'already_joined' ? 'You are already registered for this event.'
@@ -2999,6 +3000,7 @@ const fishWaitMessages = new Map();
           const openEvents = db.events.listEvents(interaction.guildId, ['registration_open']);
           if (selectedId) {
             const result = db.events.joinEvent(interaction.guildId, selectedId, interaction.user.id);
+            if (result.ok && result.locked) { const event = db.events.getEvent(interaction.guildId, selectedId); const channel = event?.announcement_channel_id ? interaction.guild.channels.cache.get(event.announcement_channel_id) : null; if (channel) channel.send({ content: `Registration is now full and closed for ${event.name}.`, allowedMentions: { parse: [] } }).then(message => db.events.recordAnnouncement(interaction.guildId, selectedId, channel.id, message.id, 'registration', interaction.user.id)).catch(error => console.error('Event capacity announcement failed:', error.message)); }
             const message = result.ok
               ? (result.locked ? 'You are registered. Registration is now full and locked.' : 'You are registered for the event.')
               : result.reason === 'already_joined' ? 'You are already registered for this event.'
