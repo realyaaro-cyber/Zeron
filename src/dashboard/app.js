@@ -71,6 +71,26 @@ function createDashboard({ db, client }) {
     req.guild = guild;
     next();
   }
+  function requireEventAccess(req, res, next) {
+    const guildId = String(req.params.guildId || '');
+    const eventId = Number(req.params.eventId || 0);
+    const oauthGuild = req.session.guilds?.find(g => g.id === guildId);
+    const guild = client.guilds.cache.get(guildId);
+    if (!oauthGuild || !guild || !db.events) {
+      return res.status(403).json({ error: 'You do not have access to this server, or ZERON is not installed there.' });
+    }
+    const permissions = BigInt(oauthGuild.permissions || '0');
+    const isAdmin = Boolean(permissions & PermissionFlagsBits.Administrator) || Boolean(permissions & PermissionFlagsBits.ManageGuild);
+    const roles = eventId ? db.events.getStaffRoles(guildId, eventId, req.session.user.id) : [];
+    if (!isAdmin && !roles.length) {
+      return res.status(403).json({ error: 'You are not assigned to this event.' });
+    }
+    req.guild = guild;
+    req.eventAdmin = isAdmin;
+    req.eventRoles = roles;
+    next();
+  }
+
   async function exchangeCode(code) {
     const response = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
@@ -1672,6 +1692,87 @@ tbody tr:hover{background:#5bbfff0b}
     }
   });
 
+
+  // Event Management API. General dashboard permissions remain unchanged.
+  app.get('/api/guild/:guildId/events', requireLogin, (req, res) => {
+    const guildId = String(req.params.guildId);
+    const oauthGuild = req.session.guilds?.find(g => g.id === guildId);
+    const guild = client.guilds.cache.get(guildId);
+    if (!oauthGuild || !guild || !db.events) return res.status(403).json({ error: 'You do not have access to this server, or ZERON is not installed there.' });
+    const permissions = BigInt(oauthGuild.permissions || '0');
+    const isAdmin = Boolean(permissions & PermissionFlagsBits.Administrator) || Boolean(permissions & PermissionFlagsBits.ManageGuild);
+    const events = isAdmin ? db.events.listEvents(guildId) : db.events.listStaffEvents(guildId, req.session.user.id);
+    if (!isAdmin && !events.length) return res.status(403).json({ error: 'You are not assigned to any events in this server.' });
+    const channels = guild.channels.cache
+      .filter(channel => [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type))
+      .map(channel => ({ id: channel.id, name: channel.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    res.json({
+      isAdmin,
+      events: events.map(event => ({
+        ...event,
+        participantCount: db.events.listParticipants(guildId, event.id).length
+      })),
+      channels
+    });
+  });
+
+  app.post('/api/guild/:guildId/events', requireLogin, requireGuild, (req, res) => {
+    try {
+      const event = db.events.createEvent(req.guild.id, req.session.user.id, req.body || {});
+      res.json({ ok: true, event });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not create event.' });
+    }
+  });
+
+  app.get('/api/guild/:guildId/events/:eventId', requireLogin, requireEventAccess, (req, res) => {
+    const event = db.events.getEvent(req.guild.id, req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found.' });
+    res.json({
+      event,
+      participants: db.events.listParticipants(req.guild.id, event.id),
+      staff: db.events.listStaff(req.guild.id, event.id),
+      activity: db.events.getActivity(req.guild.id, event.id),
+      isAdmin: req.eventAdmin,
+      staffRoles: req.eventRoles
+    });
+  });
+
+  app.post('/api/guild/:guildId/events/:eventId/registration', requireLogin, requireEventAccess, (req, res) => {
+    if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can open registration.' });
+    try {
+      const event = db.events.openRegistration(req.guild.id, req.params.eventId, req.session.user.id);
+      res.json({ ok: true, event });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not open registration.' });
+    }
+  });
+
+  app.post('/api/guild/:guildId/events/:eventId/status', requireLogin, requireEventAccess, (req, res) => {
+    if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can change event status.' });
+    try {
+      const event = db.events.setEventStatus(req.guild.id, req.params.eventId, String((req.body || {}).status || ''), req.session.user.id);
+      res.json({ ok: true, event });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not update event status.' });
+    }
+  });
+
+  app.post('/api/guild/:guildId/events/:eventId/staff', requireLogin, requireGuild, async (req, res) => {
+    try {
+      const body = req.body || {};
+      const userId = String(body.userId || '');
+      const role = String(body.role || '');
+      if (!/^\d{17,20}$/.test(userId)) return res.status(400).json({ error: 'Choose a valid Discord member.' });
+      const member = await req.guild.members.fetch(userId).catch(() => null);
+      if (!member) return res.status(400).json({ error: 'That user is not a member of this server.' });
+      db.events.assignStaff(req.guild.id, req.params.eventId, userId, role, req.session.user.id);
+      res.json({ ok: true, staff: db.events.listStaff(req.guild.id, req.params.eventId) });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not assign event staff.' });
+    }
+  });
 
   app.use((err, req, res, next) => {
     console.error('Dashboard error:', err);
