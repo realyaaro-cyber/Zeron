@@ -4,7 +4,7 @@ const EVENT_STAFF_ROLES = new Set(['host', 'referee', 'scorekeeper']);
 const ACTIVE_STATUSES = ['registration_open', 'registration_locked', 'preparing', 'active', 'paused'];
 
 function initializeEventSchema(db) {
-  db.exec(\`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       guild_id TEXT NOT NULL,
@@ -118,7 +118,7 @@ function initializeEventSchema(db) {
       FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
     );
     CREATE INDEX IF NOT EXISTS idx_event_staff_user ON event_staff(guild_id, user_id);
-  \`);
+  `);
 }
 
 function createEventService(db) {
@@ -130,8 +130,8 @@ function createEventService(db) {
   }
 
   function log(eventId, guildId, actorId, action, details = {}) {
-    db.prepare(\`INSERT INTO event_activity (event_id, guild_id, actor_id, action, details, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)\`)
+    db.prepare(`INSERT INTO event_activity (event_id, guild_id, actor_id, action, details, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)`)
       .run(Number(eventId), String(guildId), String(actorId), String(action), JSON.stringify(details), Date.now());
   }
 
@@ -146,9 +146,9 @@ function createEventService(db) {
       if (!EVENT_TYPES.has(type)) throw new Error('Choose a valid event format.');
       if (!Number.isInteger(capacity) || capacity < 2 || capacity > 1000) throw new Error('Capacity must be between 2 and 1000.');
       const now = Date.now();
-      const result = db.prepare(\`INSERT INTO events
+      const result = db.prepare(`INSERT INTO events
         (guild_id, name, description, event_type, status, capacity, rules, starts_at, created_by, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)\`)
+        VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)`)
         .run(String(guildId), name, description, type, capacity, String(input.rules || '').slice(0, 4000),
           Number.isFinite(Number(input.startsAt)) && input.startsAt ? Number(input.startsAt) : null,
           String(actorId), now, now);
@@ -162,7 +162,7 @@ function createEventService(db) {
       if (!statuses) return db.prepare('SELECT * FROM events WHERE guild_id = ? ORDER BY created_at DESC').all(String(guildId));
       const valid = statuses.filter(status => EVENT_STATUSES.has(status));
       if (!valid.length) return [];
-      return db.prepare(\`SELECT * FROM events WHERE guild_id = ? AND status IN (\${valid.map(() => '?').join(',')}) ORDER BY created_at DESC\`)
+      return db.prepare(`SELECT * FROM events WHERE guild_id = ? AND status IN (\${valid.map(() => '?').join(',')}) ORDER BY created_at DESC`)
         .all(String(guildId), ...valid);
     },
 
@@ -185,10 +185,10 @@ function createEventService(db) {
         const alreadyJoined = db.prepare("SELECT 1 FROM event_participants WHERE event_id = ? AND user_id = ? AND status = 'registered'")
           .get(Number(eventId), String(userId));
         if (alreadyJoined) return { ok: false, reason: 'already_joined' };
-        const active = db.prepare(\`SELECT e.id, e.name FROM event_participants p
+        const active = db.prepare(`SELECT e.id, e.name FROM event_participants p
           JOIN events e ON e.id = p.event_id
           WHERE p.guild_id = ? AND p.user_id = ? AND p.status = 'registered'
-          AND e.status IN (\${ACTIVE_STATUSES.map(() => '?').join(',')}) LIMIT 1\`)
+          AND e.status IN (\${ACTIVE_STATUSES.map(() => '?').join(',')}) LIMIT 1`)
           .get(String(guildId), String(userId), ...ACTIVE_STATUSES);
         if (active) return { ok: false, reason: 'already_in_event', event: active };
         const count = db.prepare("SELECT COUNT(*) AS count FROM event_participants WHERE event_id = ? AND status = 'registered'")
@@ -198,8 +198,8 @@ function createEventService(db) {
             .run(Date.now(), Number(eventId));
           return { ok: false, reason: 'full' };
         }
-        db.prepare(\`INSERT INTO event_participants (event_id, guild_id, user_id, status, joined_at)
-          VALUES (?, ?, ?, 'registered', ?)\`).run(Number(eventId), String(guildId), String(userId), Date.now());
+        db.prepare(`INSERT INTO event_participants (event_id, guild_id, user_id, status, joined_at)
+          VALUES (?, ?, ?, 'registered', ?)`).run(Number(eventId), String(guildId), String(userId), Date.now());
         const newCount = count + 1;
         if (newCount >= event.capacity) {
           db.prepare("UPDATE events SET status = 'registration_locked', updated_at = ? WHERE id = ?")
@@ -211,9 +211,9 @@ function createEventService(db) {
     },
 
     listParticipants(guildId, eventId) {
-      return db.prepare(\`SELECT p.*, e.name AS event_name FROM event_participants p
+      return db.prepare(`SELECT p.*, e.name AS event_name FROM event_participants p
         JOIN events e ON e.id = p.event_id
-        WHERE p.guild_id = ? AND p.event_id = ? ORDER BY p.joined_at ASC\`)
+        WHERE p.guild_id = ? AND p.event_id = ? ORDER BY p.joined_at ASC`)
         .all(String(guildId), Number(eventId));
     },
 
@@ -221,9 +221,9 @@ function createEventService(db) {
       if (!EVENT_STAFF_ROLES.has(role)) throw new Error('Invalid event staff role.');
       const event = getEvent(guildId, eventId);
       if (!event) throw new Error('Event not found.');
-      db.prepare(\`INSERT INTO event_staff (event_id, guild_id, user_id, role, assigned_by, assigned_at)
+      db.prepare(`INSERT INTO event_staff (event_id, guild_id, user_id, role, assigned_by, assigned_at)
         VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(event_id, user_id, role) DO NOTHING\`)
+        ON CONFLICT(event_id, user_id, role) DO NOTHING`)
         .run(Number(eventId), String(guildId), String(userId), role, String(actorId), Date.now());
       log(eventId, guildId, actorId, 'staff_assigned', { userId: String(userId), role });
       return true;
@@ -237,10 +237,10 @@ function createEventService(db) {
     },
 
     listStaffEvents(guildId, userId) {
-      return db.prepare(\`SELECT e.*, GROUP_CONCAT(s.role) AS staff_roles
+      return db.prepare(`SELECT e.*, GROUP_CONCAT(s.role) AS staff_roles
         FROM event_staff s JOIN events e ON e.id = s.event_id
         WHERE s.guild_id = ? AND s.user_id = ?
-        GROUP BY e.id ORDER BY e.created_at DESC\`)
+        GROUP BY e.id ORDER BY e.created_at DESC`)
         .all(String(guildId), String(userId));
     },
 
@@ -281,9 +281,9 @@ function createEventService(db) {
 
     recordAnnouncement(guildId, eventId, channelId, messageId, type, actorId) {
       if (!getEvent(guildId, eventId)) throw new Error('Event not found.');
-      const result = db.prepare(\`INSERT INTO event_announcements
+      const result = db.prepare(`INSERT INTO event_announcements
         (event_id, guild_id, channel_id, message_id, announcement_type, published_by, published_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)\`)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`)
         .run(Number(eventId), String(guildId), String(channelId), messageId ? String(messageId) : null,
           String(type), String(actorId), Date.now());
       log(eventId, guildId, actorId, 'announcement_published', { channelId: String(channelId), type: String(type) });
