@@ -121,6 +121,8 @@ function initializeEventSchema(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_event_staff_user ON event_staff(guild_id, user_id);
   `);
+  const eventColumns = db.prepare('PRAGMA table_info(events)').all().map(column => column.name);
+  if (!eventColumns.includes('announcement_channel_id')) db.exec('ALTER TABLE events ADD COLUMN announcement_channel_id TEXT');
 }
 
 function createEventService(db) {
@@ -147,13 +149,15 @@ function createEventService(db) {
       if (description.length > 1500) throw new Error('Description must be 1500 characters or less.');
       if (!EVENT_TYPES.has(type)) throw new Error('Choose a valid event format.');
       if (!Number.isInteger(capacity) || capacity < 2 || capacity > 1000) throw new Error('Capacity must be between 2 and 1000.');
+      const announcementChannelId = String(input.announcementChannelId || '');
+      if (!/^\\d{17,20}$/.test(announcementChannelId)) throw new Error('Choose an announcement channel for this event.');
       const now = Date.now();
       const result = db.prepare(`INSERT INTO events
-        (guild_id, name, description, event_type, status, capacity, rules, starts_at, created_by, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)`)
+        (guild_id, name, description, event_type, status, capacity, rules, starts_at, created_by, created_at, updated_at, announcement_channel_id)
+        VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?)`)
         .run(String(guildId), name, description, type, capacity, String(input.rules || '').slice(0, 4000),
           Number.isFinite(Number(input.startsAt)) && input.startsAt ? Number(input.startsAt) : null,
-          String(actorId), now, now);
+          String(actorId), now, now, announcementChannelId);
       const id = Number(result.lastInsertRowid);
       log(id, guildId, actorId, 'event_created', { name, type, capacity });
       return getEvent(guildId, id);
