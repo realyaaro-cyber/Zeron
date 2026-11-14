@@ -1643,7 +1643,7 @@ async function renderEventDetails(eventId){
       });
     });
 
-        const staffSearch=document.getElementById('event-staff-search');
+    const staffSearch=document.getElementById('event-staff-search');
     const staffResults=document.getElementById('event-staff-results');
     let staffSearchTimer;
     staffSearch?.addEventListener('input',()=>{
