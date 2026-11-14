@@ -50,7 +50,16 @@ function createDashboard({ db, client }) {
     saveUninitialized: false,
     cookie: { httpOnly: true, sameSite: 'lax', secure: production, maxAge: 8 * 60 * 60 * 1000 }
   }));
-  app.use(express.static(path.join(__dirname, '../../public'), { index: 'index.html' }));
+  app.use(express.static(path.join(__dirname, '../../public'), {
+    index: 'index.html',
+    setHeaders(res, filePath) {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-store');
+      } else if (/\.(?:js|css)$/.test(filePath)) {
+        res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+      }
+    }
+  }));
 
   function requireLogin(req, res, next) {
     if (!req.session.user) return res.status(401).json({ error: 'Please sign in with Discord first.' });
