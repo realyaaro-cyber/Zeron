@@ -1750,6 +1750,95 @@ tbody tr:hover{background:#5bbfff0b}
     }
   }
 
+  function escapeDiscordMarkdown(value) {
+    return String(value || '').replace(/[\\_*~|>]/g, '\\  // Event Management API. General dashboard permissions remain unchanged.');
+  }
+
+  async function publishTournamentRoundAnnouncement(guild, event, roundNumber, actorId, championId = null) {
+    if (!event?.announcement_channel_id) return false;
+    try {
+      const channel = guild.channels.cache.get(String(event.announcement_channel_id))
+        || await guild.channels.fetch(String(event.announcement_channel_id)).catch(() => null);
+      if (!channel || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) return false;
+      const matches = db.events.listMatches(guild.id, event.id)
+        .filter(match => Number(match.round_number) === Number(roundNumber));
+      if (!matches.length) return false;
+
+      const userIds = [...new Set(matches.flatMap(match => [match.participant_a, match.participant_b]).filter(Boolean).map(String))];
+      const displayNames = new Map();
+      for (let index = 0; index < userIds.length; index += 10) {
+        const batch = await Promise.all(userIds.slice(index, index + 10).map(async userId => {
+          const member = guild.members.cache.get(userId) || await guild.members.fetch(userId).catch(() => null);
+          return [userId, escapeDiscordMarkdown(member?.displayName || member?.user?.globalName || member?.user?.username || userId)];
+        }));
+        for (const [userId, name] of batch) displayNames.set(userId, name);
+      }
+
+      const scoresByMatch = new Map();
+      for (const row of db.events.listMatchScores(guild.id, event.id)) {
+        if (!scoresByMatch.has(Number(row.match_id))) scoresByMatch.set(Number(row.match_id), new Map());
+        scoresByMatch.get(Number(row.match_id)).set(String(row.user_id), Number(row.score));
+      }
+      const nameFor = userId => displayNames.get(String(userId)) || escapeDiscordMarkdown(userId);
+      const completed = matches.filter(match => match.status === 'completed').length;
+      const lines = [
+        '# 🏆 ' + escapeDiscordMarkdown(event.name),
+        '## ⚔️ ROUND ' + Number(roundNumber),
+        '-# ZERON OFFICIAL TOURNAMENT · LIVE BRACKET',
+        '---'
+      ];
+
+      for (let index = 0; index < matches.length; index++) {
+        const match = matches[index];
+        const scores = scoresByMatch.get(Number(match.id)) || new Map();
+        lines.push('**MATCH ' + String(match.match_number).padStart(2, '0') + '**');
+        if (match.status === 'completed' && match.winner_id) {
+          const winnerId = String(match.winner_id);
+          const loserId = winnerId === String(match.participant_a) ? String(match.participant_b) : String(match.participant_a);
+          const scoreText = score => Number.isFinite(score) ? ' — ' + String(score) : '';
+          lines.push('🏆 **' + nameFor(winnerId) + '**' + scoreText(scores.get(winnerId)) + '  VS  ~~' + nameFor(loserId) + '~~' + scoreText(scores.get(loserId)));
+          lines.push('-# ✅ WINNER: ' + nameFor(winnerId));
+        } else {
+          lines.push('**' + nameFor(match.participant_a) + '**  **VS**  **' + nameFor(match.participant_b) + '**');
+          lines.push('-# ⏳ Awaiting match result');
+        }
+        if (index < matches.length - 1) lines.push('---');
+      }
+
+      lines.push('---', '-# ROUND PROGRESS · ' + completed + '/' + matches.length + ' MATCHES COMPLETED');
+      if (championId) {
+        lines.push(
+          '---',
+          '## 🏆 TOURNAMENT CHAMPION',
+          '### 👑 ' + nameFor(championId),
+          'Congratulations on taking the title! Thank you for bringing your best to the final.',
+          '',
+          '**To every player who participated:** thank you for competing and making this tournament possible. Whether you won or lost, keep practising, sharpen your skills, and come back stronger next time. GG everyone! 🎉'
+        );
+      } else if (completed === matches.length) {
+        lines.push('', '-# ROUND COMPLETE · THE NEXT ROUND IS READY');
+      }
+
+      const payload = toV2Payload({ content: lines.join('\n'), allowedMentions: { parse: [] } });
+      const announcementType = 'bracket_round_' + Number(roundNumber);
+      const existing = db.events.getAnnouncement(guild.id, event.id, announcementType);
+      if (existing?.channel_id && existing?.message_id && String(existing.channel_id) === String(channel.id)) {
+        const previousMessage = await channel.messages.fetch(String(existing.message_id)).catch(() => null);
+        if (previousMessage) {
+          await previousMessage.edit(payload);
+          return true;
+        }
+      }
+
+      const message = await channel.send(payload);
+      db.events.recordAnnouncement(guild.id, event.id, channel.id, message.id, announcementType, String(actorId || '0'));
+      return true;
+    } catch (error) {
+      console.error('Tournament round announcement failed for event ' + event.id + ', round ' + roundNumber + ':', error.message);
+      return false;
+    }
+  }
+
   // Event Management API. General dashboard permissions remain unchanged.
   app.get('/api/guild/:guildId/events', requireLogin, async (req, res) => {
     const guildId = String(req.params.guildId);
@@ -1877,30 +1966,34 @@ tbody tr:hover{background:#5bbfff0b}
     }
   });
 
-  app.post('/api/guild/:guildId/events/:eventId/bracket', requireLogin, requireEventAccess, (req, res) => {
+  app.post('/api/guild/:guildId/events/:eventId/bracket', requireLogin, requireEventAccess, async (req, res) => {
     if (!req.eventAdmin && !req.eventRoles.includes('host')) return res.status(403).json({ error: 'Only the event host or a server administrator can generate the bracket.' });
     try {
       const matches = db.events.createTournamentBracket(req.guild.id, req.params.eventId, req.session.user.id);
       const event = db.events.getEvent(req.guild.id, req.params.eventId);
-      publishAutomaticEventAnnouncement(req.guild, event, 'bracket', `The tournament bracket for ${event.name} has been generated. Round 1 is ready with ${matches.length} matches.`, req.session.user.id);
-      res.json({ ok: true, matches });
+      const announcementSent = await publishTournamentRoundAnnouncement(req.guild, event, 1, req.session.user.id);
+      res.json({ ok: true, matches, announcementSent });
     } catch (error) {
       res.status(400).json({ error: error.message || 'Could not generate the tournament bracket.' });
     }
   });
 
-  app.post('/api/guild/:guildId/events/:eventId/matches/:matchId/result', requireLogin, requireEventAccess, (req, res) => {
+  app.post('/api/guild/:guildId/events/:eventId/matches/:matchId/result', requireLogin, requireEventAccess, async (req, res) => {
     const allowed = req.eventAdmin || req.eventRoles.some(role => ['host', 'referee', 'scorekeeper'].includes(role));
     if (!allowed) return res.status(403).json({ error: 'Only assigned event staff can record match results.' });
     try {
       const body = req.body || {};
       const result = db.events.recordMatchResult(req.guild.id, req.params.eventId, req.params.matchId, body.scoreA, body.scoreB, req.session.user.id);
       const event = db.events.getEvent(req.guild.id, req.params.eventId);
-      if (result.championId) publishAutomaticEventAnnouncement(req.guild, event, 'results', `${event.name} is complete. Champion: <@${result.championId}>.`, req.session.user.id);
-      else if (result.nextRound) publishAutomaticEventAnnouncement(req.guild, event, 'results', `All matches in Round ${result.nextRound - 1} of ${event.name} are complete. Round ${result.nextRound} is now ready.`, req.session.user.id);
+      const currentRound = Number(result.match.round_number);
+      const announcementUpdated = await publishTournamentRoundAnnouncement(req.guild, event, currentRound, req.session.user.id, result.championId || null);
+      let nextRoundPublished = null;
+      if (result.nextRound) nextRoundPublished = await publishTournamentRoundAnnouncement(req.guild, event, result.nextRound, req.session.user.id);
       res.json({
         ok: true,
         result,
+        announcementUpdated,
+        nextRoundPublished,
         matches: db.events.listMatches(req.guild.id, req.params.eventId),
         leaderboard: db.events.getScoreLeaderboard(req.guild.id, req.params.eventId)
       });
