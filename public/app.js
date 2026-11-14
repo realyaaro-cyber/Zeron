@@ -1724,7 +1724,7 @@ async function renderEventDetails(eventId){
 
     content.querySelectorAll('[data-event-status]').forEach(button=>button.addEventListener('click',async()=>{
       const status=button.dataset.eventStatus;button.disabled=true;
-      try{await api(`/api/guild/${currentGuild}/events/${eventId}/status`,{method:'POST',body:JSON.stringify({status})});toast('Event status updated.');await renderEventDetails(eventId);}
+      try{const endpoint=status==='registration_open'?'registration':'status';await api(`/api/guild/${currentGuild}/events/${eventId}/${endpoint}`,{method:'POST',body:JSON.stringify({status})});toast(status==='registration_open'?'Registration opened and announcement published.':'Event status updated.');await renderEventDetails(eventId);}
       catch(error){toast(error.message,true);button.disabled=false;}
     }));
   }catch(error){content.innerHTML=`<div class="panel card empty"><h3>Could not load event</h3><p>${escapeHtml(error.message)}</p><button class="btn" id="event-back">Back to events</button></div>`;document.getElementById('event-back')?.addEventListener('click',renderEvents);}
