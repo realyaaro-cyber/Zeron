@@ -2979,7 +2979,7 @@ const fishWaitMessages = new Map();
         const eventId = Number(interaction.values[0]);
         const result = db.events.joinEvent(guildId, eventId, userId);
         const message = result.ok
-          ? (result.locked ? '✅ You are registered! The event has now reached capacity and registration is locked.' : '✅ You are registered for the event.')
+          ? (result.locked ? 'You are registered. The event has reached capacity and registration is now locked.' : 'You are registered for the event.')
           : result.reason === 'already_joined' ? 'You are already registered for this event.'
           : result.reason === 'already_in_event' ? 'You are already registered for another active event.'
           : result.reason === 'full' ? 'This event has reached capacity.'
@@ -3000,7 +3000,7 @@ const fishWaitMessages = new Map();
           if (selectedId) {
             const result = db.events.joinEvent(interaction.guildId, selectedId, interaction.user.id);
             const message = result.ok
-              ? (result.locked ? '✅ You are registered! Registration is now full and locked.' : '✅ You are registered for the event.')
+              ? (result.locked ? 'You are registered. Registration is now full and locked.' : 'You are registered for the event.')
               : result.reason === 'already_joined' ? 'You are already registered for this event.'
               : result.reason === 'already_in_event' ? 'You are already registered for another active event.'
               : result.reason === 'full' ? 'This event has reached capacity.'
@@ -3012,7 +3012,7 @@ const fishWaitMessages = new Map();
           if (openEvents.length === 1) {
             const result = db.events.joinEvent(interaction.guildId, openEvents[0].id, interaction.user.id);
             const message = result.ok
-              ? (result.locked ? '✅ You are registered! Registration is now full and locked.' : '✅ You are registered for the event.')
+              ? (result.locked ? 'You are registered. Registration is now full and locked.' : 'You are registered for the event.')
               : result.reason === 'already_joined' ? 'You are already registered for this event.'
               : result.reason === 'already_in_event' ? 'You are already registered for another active event.'
               : result.reason === 'full' ? 'This event has reached capacity.'
