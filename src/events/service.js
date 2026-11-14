@@ -123,6 +123,7 @@ function initializeEventSchema(db) {
   `);
   const eventColumns = db.prepare('PRAGMA table_info(events)').all().map(column => column.name);
   if (!eventColumns.includes('announcement_channel_id')) db.exec('ALTER TABLE events ADD COLUMN announcement_channel_id TEXT');
+  if (!eventColumns.includes('custom_message')) db.exec("ALTER TABLE events ADD COLUMN custom_message TEXT NOT NULL DEFAULT ''");
 }
 
 function createEventService(db) {
@@ -142,22 +143,22 @@ function createEventService(db) {
   return {
     createEvent(guildId, actorId, input) {
       const name = String(input.name || '').trim();
-      const description = String(input.description || '').trim();
+      const customMessage = String(input.customMessage || '').trim();
       const type = String(input.type || '');
       const capacity = Number(input.capacity);
       if (name.length < 3 || name.length > 80) throw new Error('Event name must be 3–80 characters.');
-      if (description.length > 1500) throw new Error('Description must be 1500 characters or less.');
+      if (customMessage.length > 3500) throw new Error('Custom announcement message must be 3500 characters or less.');
       if (!EVENT_TYPES.has(type)) throw new Error('Choose a valid event format.');
       if (!Number.isInteger(capacity) || capacity < 2 || capacity > 1000) throw new Error('Capacity must be between 2 and 1000.');
       const announcementChannelId = String(input.announcementChannelId || '');
       if (!/^\d{17,20}$/.test(announcementChannelId)) throw new Error('Choose an announcement channel for this event.');
       const now = Date.now();
       const result = db.prepare(`INSERT INTO events
-        (guild_id, name, description, event_type, status, capacity, rules, starts_at, created_by, created_at, updated_at, announcement_channel_id)
-        VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?)`)
-        .run(String(guildId), name, description, type, capacity, String(input.rules || '').slice(0, 4000),
+        (guild_id, name, description, event_type, status, capacity, rules, starts_at, created_by, created_at, updated_at, announcement_channel_id, custom_message)
+        VALUES (?, ?, ?, ?, 'draft', ?, '', ?, ?, ?, ?, ?, ?)`)
+        .run(String(guildId), name, customMessage, type, capacity,
           Number.isFinite(Number(input.startsAt)) && input.startsAt ? Number(input.startsAt) : null,
-          String(actorId), now, now, announcementChannelId);
+          String(actorId), now, now, announcementChannelId, customMessage);
       const id = Number(result.lastInsertRowid);
       log(id, guildId, actorId, 'event_created', { name, type, capacity });
       return getEvent(guildId, id);
