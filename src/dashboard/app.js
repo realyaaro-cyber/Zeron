@@ -1809,9 +1809,23 @@ tbody tr:hover{background:#5bbfff0b}
   app.get('/api/guild/:guildId/events/:eventId', requireLogin, requireEventAccess, async (req, res) => {
     const event = db.events.getEvent(req.guild.id, req.params.eventId);
     if (!event) return res.status(404).json({ error: 'Event not found.' });
+    const participantRows = db.events.listParticipants(req.guild.id, event.id);
+    const participants = [];
+    for (let index = 0; index < participantRows.length; index += 10) {
+      const batch = await Promise.all(participantRows.slice(index, index + 10).map(async participant => {
+        const userId = String(participant.user_id);
+        const member = req.guild.members.cache.get(userId)
+          || await req.guild.members.fetch(userId).catch(() => null);
+        return {
+          ...participant,
+          display_name: member?.displayName || member?.user?.globalName || member?.user?.username || userId
+        };
+      }));
+      participants.push(...batch);
+    }
     res.json({
       event,
-      participants: db.events.listParticipants(req.guild.id, event.id),
+      participants,
       matches: db.events.listMatches(req.guild.id, event.id),
       leaderboard: db.events.getScoreLeaderboard(req.guild.id, event.id),
       staff: db.events.listStaff(req.guild.id, event.id),
