@@ -236,6 +236,19 @@ function createEventService(db) {
       return removed;
     },
 
+    listStaffEvents(guildId, userId) {
+      return db.prepare(\`SELECT e.*, GROUP_CONCAT(s.role) AS staff_roles
+        FROM event_staff s JOIN events e ON e.id = s.event_id
+        WHERE s.guild_id = ? AND s.user_id = ?
+        GROUP BY e.id ORDER BY e.created_at DESC\`)
+        .all(String(guildId), String(userId));
+    },
+
+    listStaff(guildId, eventId) {
+      return db.prepare('SELECT user_id, role, assigned_by, assigned_at FROM event_staff WHERE guild_id = ? AND event_id = ? ORDER BY role, assigned_at')
+        .all(String(guildId), Number(eventId));
+    },
+
     getStaffRoles(guildId, eventId, userId) {
       return db.prepare('SELECT role FROM event_staff WHERE guild_id = ? AND event_id = ? AND user_id = ?')
         .all(String(guildId), Number(eventId)).map(row => row.role);
