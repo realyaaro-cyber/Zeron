@@ -1512,6 +1512,7 @@ async function renderEvents(){
               <option value="1v1_tournament">1v1 Tournament</option><option value="team_vs_team">Team vs Team</option><option value="free_for_all">Free-for-All</option><option value="custom">Custom Event</option>
             </select></div>
             <div class="field"><label for="event-capacity">Player capacity</label><input id="event-capacity" name="capacity" type="number" min="2" max="1000" value="32" required></div>
+            <div class="field"><label for="event-announcement-channel">Announcement channel</label><select id="event-announcement-channel" name="announcementChannelId" required>${data.channels.map(channel=>`<option value="${channel.id}">#${escapeHtml(channel.name)}</option>`).join('')}</select><small class="muted">ZERON will post every event update in this channel.</small></div>
             <div class="field"><label for="event-description">Description</label><textarea id="event-description" name="description" maxlength="1500" rows="3" placeholder="What is this event about?"></textarea></div>
             <div class="field"><label for="event-rules">Rules</label><textarea id="event-rules" name="rules" maxlength="4000" rows="4" placeholder="Add the event rules…"></textarea></div>
           </div>
@@ -1523,7 +1524,7 @@ async function renderEvents(){
     form?.addEventListener('submit',async event=>{
       event.preventDefault();
       const button=form.querySelector('button[type="submit"]');
-      const payload={name:form.elements.namedItem('name').value.trim(),type:form.elements.namedItem('type').value,capacity:Number(form.elements.namedItem('capacity').value),description:form.elements.namedItem('description').value,rules:form.elements.namedItem('rules').value};
+      const payload={name:form.elements.namedItem('name').value.trim(),type:form.elements.namedItem('type').value,capacity:Number(form.elements.namedItem('capacity').value),description:form.elements.namedItem('description').value,rules:form.elements.namedItem('rules').value,announcementChannelId:form.elements.namedItem('announcementChannelId').value};
       button.disabled=true;button.textContent='Creating…';
       try{await api(`/api/guild/${currentGuild}/events`,{method:'POST',body:JSON.stringify(payload)});toast('Draft event created.');await renderEvents();}
       catch(error){toast(error.message,true);button.disabled=false;button.textContent='Create draft event';}
@@ -1549,7 +1550,7 @@ async function renderEventDetails(eventId){
     const participants=data.participants.length?data.participants.map((person,index)=>`<div class="rr-row"><span class="rw-level-badge">${index+1}</span><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="muted">${new Date(person.joined_at).toLocaleDateString()}</span></div>`).join(''):'<p class="muted">No participants registered yet.</p>';
     const staff=data.staff.length?data.staff.map(person=>`<div class="rr-row"><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="rw-level-badge">${escapeHtml(person.role)}</span>${data.isAdmin?`<button type="button" class="btn" data-staff-remove="${escapeHtml(person.user_id)}" data-staff-role="${escapeHtml(person.role)}">Remove</button>`:''}</div>`).join(''):'<p class="muted">No event staff assigned.</p>';
     const staffTools=data.isAdmin?`<div style="margin-top:14px"><div class="field"><label for="event-staff-search">Find a server member</label><input id="event-staff-search" maxlength="32" placeholder="Search username or server nickname"><div id="event-staff-results" style="display:grid;gap:6px;margin-top:8px"></div></div><div class="field"><label for="event-staff-role">Staff role</label><select id="event-staff-role"><option value="host">Event Host</option><option value="referee">Referee</option><option value="scorekeeper">Scorekeeper</option></select></div><p class="muted">Event staff can access only the events they are assigned to.</p></div>`:'';
-    const announcementTools=canHost?`<div class="panel card" style="margin-bottom:14px"><h3>Publish an event announcement</h3><div class="field"><label for="event-announcement-channel">Destination channel</label><select id="event-announcement-channel">${data.channels.map(channel=>`<option value="${channel.id}">#${escapeHtml(channel.name)}</option>`).join('')}</select></div><div class="field"><label for="event-announcement-type">Announcement type</label><select id="event-announcement-type"><option value="general">General update</option><option value="registration">Registration update</option><option value="schedule">Schedule update</option><option value="results">Results</option></select></div><div class="field"><label for="event-announcement-content">Message</label><textarea id="event-announcement-content" maxlength="2000" rows="4" placeholder="Write the announcement for your members…"></textarea></div><button type="button" class="btn primary" id="event-announcement-publish">Publish announcement</button><p class="muted">Announcements are published only when a staff member presses this button.</p></div>`:'';
+    const announcementTools=`<div class="panel card" style="margin-bottom:14px"><h3>Automatic announcements</h3><p class="muted">Every event update is posted automatically in <strong>#${escapeHtml(data.channels.find(channel=>channel.id===event.announcement_channel_id)?.name||'selected channel')}</strong>. Round results are announced after the full round is complete.</p></div>`;
     const activity=data.activity.length?data.activity.map(item=>`<div class="rr-row"><span class="rr-info">${escapeHtml(item.action.replaceAll('_',' '))}</span><small class="muted">${new Date(item.created_at).toLocaleString()}</small></div>`).join(''):'<p class="muted">No activity recorded yet.</p>';
 
     let bracketTools='';
@@ -1642,18 +1643,7 @@ async function renderEventDetails(eventId){
       });
     });
 
-    document.getElementById('event-announcement-publish')?.addEventListener('click',async buttonEvent=>{
-      const button=buttonEvent.currentTarget;
-      const channelId=document.getElementById('event-announcement-channel').value;
-      const type=document.getElementById('event-announcement-type').value;
-      const message=document.getElementById('event-announcement-content').value.trim();
-      if(!message)return toast('Write an announcement first.',true);
-      button.disabled=true;button.textContent='Publishing…';
-      try{await api(`/api/guild/${currentGuild}/events/${eventId}/announcements`,{method:'POST',body:JSON.stringify({channelId,type,content:message})});toast('Event announcement published.');await renderEventDetails(eventId);}
-      catch(error){toast(error.message,true);button.disabled=false;button.textContent='Publish announcement';}
-    });
-
-    const staffSearch=document.getElementById('event-staff-search');
+        const staffSearch=document.getElementById('event-staff-search');
     const staffResults=document.getElementById('event-staff-results');
     let staffSearchTimer;
     staffSearch?.addEventListener('input',()=>{
