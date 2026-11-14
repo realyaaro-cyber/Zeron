@@ -1586,8 +1586,8 @@ async function renderEventDetails(eventId){
     const staff=data.staff.length?data.staff.map(person=>`<div class="rr-row"><span class="rr-info">${escapeHtml(person.display_name||person.user_id)}</span><span class="rw-level-badge">${escapeHtml(person.role)}</span>${data.isAdmin?`<button type="button" class="btn" data-staff-remove="${escapeHtml(person.user_id)}" data-staff-role="${escapeHtml(person.role)}">Remove</button>`:''}</div>`).join(''):'<p class="muted">No event staff assigned.</p>';
     const staffTools=data.isAdmin?`<div style="margin-top:14px"><div class="field"><label for="event-staff-search">Find a server member</label><input id="event-staff-search" maxlength="32" placeholder="Search username or server nickname"><div id="event-staff-results" style="display:grid;gap:6px;margin-top:8px"></div></div><div class="field"><label for="event-staff-role">Staff role</label><select id="event-staff-role"><option value="host">Event Host</option><option value="referee">Referee</option><option value="scorekeeper">Scorekeeper</option></select></div><p class="muted">Event staff can access only the events they are assigned to.</p></div>`:'';
     const announcementTools=`<div class="panel card" style="margin-bottom:14px"><h3>Automatic announcements</h3><p class="muted">Every event update is posted automatically in <strong>#${escapeHtml(data.channels.find(channel=>channel.id===event.announcement_channel_id)?.name||'selected channel')}</strong>. Round results are announced after the full round is complete.</p></div>`;
-    const completedEventTools=data.isAdmin&&event.status==='completed'
-      ? `<div class="panel card" style="margin-bottom:14px"><h3>Manage completed event</h3><p class="muted">Delete this completed event and its participants, matches, scores, staff assignments and activity history.</p><button type="button" class="btn" id="event-delete-completed">Delete completed event</button></div>`
+    const eventDeleteTools=data.isAdmin
+      ? `<div class="panel card" style="margin-bottom:14px"><h3>Manage event</h3><p class="muted">Delete this event and all its participants, matches, scores, staff assignments and activity history. This cannot be undone.</p><button type="button" class="btn" id="event-delete">Delete event</button></div>`
       : '';
     const activity=data.activity.length?data.activity.map(item=>`<div class="rr-row"><span class="rr-info">${escapeHtml(item.action.replaceAll('_',' '))}</span><small class="muted">${new Date(item.created_at).toLocaleString()}</small></div>`).join(''):'<p class="muted">No activity recorded yet.</p>';
 
@@ -1651,22 +1651,22 @@ async function renderEventDetails(eventId){
       ${matchesPanel}
       <div class="panel card" style="margin-bottom:14px"><h3>Event staff</h3>${staff}${staffTools}</div>
       ${announcementTools}
-      ${completedEventTools}
+      ${eventDeleteTools}
       <div class="panel card"><h3>Activity log</h3>${activity}</div>`;
     document.getElementById('event-back')?.addEventListener('click',renderEvents);
-    document.getElementById('event-delete-completed')?.addEventListener('click',async buttonEvent=>{
+    document.getElementById('event-delete')?.addEventListener('click',async buttonEvent=>{
       const button=buttonEvent.currentTarget;
-      if(!window.confirm(`Delete completed event "${event.name}"? This also deletes its participants, matches, scores, staff assignments and activity history. This cannot be undone.`)) return;
+      if(!window.confirm(`Delete event "${event.name}"? This also deletes its participants, matches, scores, staff assignments and activity history. This cannot be undone.`)) return;
       button.disabled=true;
       button.textContent='Deleting…';
       try{
         await api(`/api/guild/${currentGuild}/events/${eventId}`,{method:'DELETE'});
-        toast('Completed event deleted.');
+        toast('Event deleted.');
         await renderEvents();
       }catch(error){
         toast(error.message,true);
         button.disabled=false;
-        button.textContent='Delete completed event';
+        button.textContent='Delete event';
       }
     });
 
