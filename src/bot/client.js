@@ -2996,10 +2996,10 @@ const fishWaitMessages = new Map();
               const customMessage = String(updatedEvent.custom_message || updatedEvent.description || '').trim();
               const lockedEmbed = new EmbedBuilder()
                 .setColor(db.accentColor(guildId))
-                .setTitle(`🎉 ${updatedEvent.name} — Registration Open`)
+                .setTitle(`🎉 ${updatedEvent.name} — Registration Locked`)
                 .setDescription(
                   (customMessage || 'Registration is now open. Select Register below to join this event.') +
-                  '\\n\\n━━━━━━━━━━━━━━━━━━━━\\n🔒 **REGISTRATION LOCKED**'
+                  '\n\n━━━━━━━━━━━━━━━━━━━━\n🔒 **REGISTRATION LOCKED**'
                 )
                 .addFields(
                   { name: 'Format', value: updatedEvent.event_type.replaceAll('_', ' '), inline: true },
