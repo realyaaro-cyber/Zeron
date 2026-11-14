@@ -1705,7 +1705,7 @@ tbody tr:hover{background:#5bbfff0b}
   }
 
   // Event Management API. General dashboard permissions remain unchanged.
-  app.get('/api/guild/:guildId/events', requireLogin, (req, res) => {
+  app.get('/api/guild/:guildId/events', requireLogin, async (req, res) => {
     const guildId = String(req.params.guildId);
     const oauthGuild = req.session.guilds?.find(g => g.id === guildId);
     const guild = client.guilds.cache.get(guildId);
@@ -1714,7 +1714,8 @@ tbody tr:hover{background:#5bbfff0b}
     const isAdmin = Boolean(permissions & PermissionFlagsBits.Administrator) || Boolean(permissions & PermissionFlagsBits.ManageGuild);
     const events = isAdmin ? db.events.listEvents(guildId) : db.events.listStaffEvents(guildId, req.session.user.id);
     if (!isAdmin && !events.length) return res.status(403).json({ error: 'You are not assigned to any events in this server.' });
-    const channels = guild.channels.cache
+    const fetchedChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
+    const channels = [...fetchedChannels.values()]
       .filter(channel => [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type))
       .map(channel => ({ id: channel.id, name: channel.name }))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -1728,11 +1729,13 @@ tbody tr:hover{background:#5bbfff0b}
     });
   });
 
-  app.post('/api/guild/:guildId/events', requireLogin, requireGuild, (req, res) => {
+  app.post('/api/guild/:guildId/events', requireLogin, requireGuild, async (req, res) => {
     try {
       const channelId = String(req.body?.announcementChannelId || '');
-      const channel = req.guild.channels.cache.get(channelId);
-      if (!/^\d{17,20}$/.test(channelId) || !channel || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) return res.status(400).json({ error: 'Choose a valid announcement channel in this server.' });
+      const channel = /^\d{17,20}$/.test(channelId)
+        ? await req.guild.channels.fetch(channelId).catch(() => null)
+        : null;
+      if (!channel || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) return res.status(400).json({ error: 'Choose a valid announcement channel in this server.' });
       const event = db.events.createEvent(req.guild.id, req.session.user.id, req.body || {});
       res.json({ ok: true, event });
     } catch (error) {
@@ -1757,7 +1760,7 @@ tbody tr:hover{background:#5bbfff0b}
     }
   });
 
-  app.get('/api/guild/:guildId/events/:eventId', requireLogin, requireEventAccess, (req, res) => {
+  app.get('/api/guild/:guildId/events/:eventId', requireLogin, requireEventAccess, async (req, res) => {
     const event = db.events.getEvent(req.guild.id, req.params.eventId);
     if (!event) return res.status(404).json({ error: 'Event not found.' });
     res.json({
@@ -1767,10 +1770,22 @@ tbody tr:hover{background:#5bbfff0b}
       leaderboard: db.events.getScoreLeaderboard(req.guild.id, event.id),
       staff: db.events.listStaff(req.guild.id, event.id),
       activity: db.events.getActivity(req.guild.id, event.id),
-      channels: req.guild.channels.cache.filter(channel => [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)).map(channel => ({ id: channel.id, name: channel.name })),
+      channels: [...(await req.guild.channels.fetch().catch(() => req.guild.channels.cache)).values()]
+        .filter(channel => [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type))
+        .map(channel => ({ id: channel.id, name: channel.name })),
       isAdmin: req.eventAdmin,
       staffRoles: req.eventRoles
     });
+  });
+
+  app.delete('/api/guild/:guildId/events/:eventId', requireLogin, requireEventAccess, (req, res) => {
+    if (!req.eventAdmin) return res.status(403).json({ error: 'Only a server administrator can delete an event.' });
+    try {
+      const deleted = db.events.deleteCompletedEvent(req.guild.id, req.params.eventId);
+      res.json({ ok: true, event: deleted });
+    } catch (error) {
+      res.status(400).json({ error: error.message || 'Could not delete completed event.' });
+    }
   });
 
   app.post('/api/guild/:guildId/events/:eventId/registration', requireLogin, requireEventAccess, (req, res) => {
