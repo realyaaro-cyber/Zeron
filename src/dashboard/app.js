@@ -463,8 +463,32 @@ function createDashboard({ db, client }) {
     }
   });
 
-  app.get('/api/guild/:guildId/logs', requireLogin, requireGuild, (req, res) => {
-    res.json({ logs: db.getLogs(req.guild.id, 100) });
+  app.get('/api/guild/:guildId/logs', requireLogin, requireGuild, async (req, res) => {
+    try {
+      const logs = db.getLogs(req.guild.id, 100);
+      const userIds = [...new Set(logs.flatMap(row => [row.target_id, row.moderator_id]).filter(Boolean).map(String))];
+      const displayNames = new Map();
+      await Promise.all(userIds.map(async userId => {
+        const member = req.guild.members.cache.get(userId) || await req.guild.members.fetch(userId).catch(() => null);
+        if (member) {
+          displayNames.set(userId, member.displayName || member.user.globalName || member.user.username);
+          return;
+        }
+        const user = await client.users.fetch(userId).catch(() => null);
+        if (user) displayNames.set(userId, user.globalName || user.username);
+      }));
+      const nameFor = userId => displayNames.get(String(userId)) || String(userId);
+      res.json({
+        logs: logs.map(row => ({
+          ...row,
+          target_display_name: row.target_id ? nameFor(row.target_id) : '—',
+          moderator_display_name: row.moderator_id ? nameFor(row.moderator_id) : 'System'
+        }))
+      });
+    } catch (error) {
+      console.error('Moderation logs query failed:', error);
+      res.status(500).json({ error: 'Could not load moderation logs.' });
+    }
   });
   app.get('/api/guild/:guildId/roles', requireLogin, requireGuild, (req, res) => {
     const roles = req.guild.roles.cache.filter(r => r.id !== req.guild.id).map(r => ({
