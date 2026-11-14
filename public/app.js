@@ -425,7 +425,7 @@ async function loadModerationLogs(){
       const action=filter.value;
       const visible=logs.filter(l=>{
         const matchesAction=!action||String(l.action||'Unknown')===action;
-        const haystack=[l.action,l.target_id,l.moderator_id,l.reason,l.created_at]
+        const haystack=[l.action,l.target_display_name,l.moderator_display_name,l.target_id,l.moderator_id,l.reason,l.created_at]
           .map(v=>String(v||'')).join(' ').toLowerCase();
         return matchesAction&&(!q||haystack.includes(q));
       });
@@ -440,8 +440,8 @@ async function loadModerationLogs(){
       }
 
       results.innerHTML=`<div class="muted" style="font-size:11px;margin-bottom:10px">Showing ${visible.length} of ${logs.length} loaded records</div>
-      <div class="table-wrap"><table class="table"><thead><tr><th>ACTION</th><th>TARGET ID</th><th>MODERATOR ID</th><th>REASON</th><th>TIME</th></tr></thead><tbody>
-      ${visible.map(l=>`<tr><td><span class="pill">${escapeHtml(l.action||'Unknown')}</span></td><td>${escapeHtml(l.target_id||'—')}</td><td>${escapeHtml(l.moderator_id||'System')}</td><td class="logs-reason">${escapeHtml(l.reason||'—')}</td><td>${escapeHtml(l.created_at||'—')}</td></tr>`).join('')}
+      <div class="table-wrap"><table class="table"><thead><tr><th>ACTION</th><th>TARGET</th><th>MODERATOR</th><th>REASON</th><th>TIME</th></tr></thead><tbody>
+      ${visible.map(l=>`<tr><td><span class="pill">${escapeHtml(l.action||'Unknown')}</span></td><td>${escapeHtml(l.target_display_name||l.target_id||'—')}</td><td>${escapeHtml(l.moderator_display_name||l.moderator_id||'System')}</td><td class="logs-reason">${escapeHtml(l.reason||'—')}</td><td>${escapeHtml(l.created_at||'—')}</td></tr>`).join('')}
       </tbody></table></div>`;
     }
 
