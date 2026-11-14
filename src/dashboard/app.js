@@ -1898,12 +1898,31 @@ tbody tr:hover{background:#5bbfff0b}
   app.get('/api/guild/:guildId/events/:eventId', requireLogin, requireEventAccess, async (req, res) => {
     const event = db.events.getEvent(req.guild.id, req.params.eventId);
     if (!event) return res.status(404).json({ error: 'Event not found.' });
+    const participants = db.events.listParticipants(req.guild.id, event.id);
+    const matches = db.events.listMatches(req.guild.id, event.id);
+    const staff = db.events.listStaff(req.guild.id, event.id);
+    const memberIds = [...new Set([
+      ...participants.map(person => String(person.user_id)),
+      ...staff.map(person => String(person.user_id)),
+      ...matches.flatMap(match => [match.participant_a, match.participant_b, match.winner_id].filter(Boolean).map(String))
+    ])];
+    const displayNames = new Map();
+    for (let index = 0; index < memberIds.length; index += 10) {
+      const batch = await Promise.all(memberIds.slice(index, index + 10).map(async userId => {
+        const member = req.guild.members.cache.get(userId) || await req.guild.members.fetch(userId).catch(() => null);
+        if (member) return [userId, member.displayName || member.user.globalName || member.user.username];
+        const user = await client.users.fetch(userId).catch(() => null);
+        return [userId, user?.globalName || user?.username || userId];
+      }));
+      for (const [userId, name] of batch) displayNames.set(userId, name);
+    }
+    const nameFor = userId => displayNames.get(String(userId)) || String(userId);
     res.json({
       event,
-      participants: db.events.listParticipants(req.guild.id, event.id),
-      matches: db.events.listMatches(req.guild.id, event.id),
+      participants: participants.map(person => ({ ...person, display_name: nameFor(person.user_id) })),
+      matches,
       leaderboard: db.events.getScoreLeaderboard(req.guild.id, event.id),
-      staff: db.events.listStaff(req.guild.id, event.id),
+      staff: staff.map(person => ({ ...person, display_name: nameFor(person.user_id) })),
       activity: db.events.getActivity(req.guild.id, event.id),
       channels: [...(await req.guild.channels.fetch().catch(() => req.guild.channels.cache)).values()]
         .filter(channel => channel && [ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type))
@@ -1943,7 +1962,7 @@ tbody tr:hover{background:#5bbfff0b}
     try {
       const previous = db.events.getEvent(req.guild.id, req.params.eventId);
       const event = db.events.setEventStatus(req.guild.id, req.params.eventId, String((req.body || {}).status || ''), req.session.user.id);
-      const messages = { registration_locked: `Registration is now closed for ${event.name}.`, preparing: `${event.name} is preparing to begin.`, active: `${event.name} is now live.`, paused: `${event.name} has been paused by event staff.`, completed: `${event.name} has been marked as completed.`, cancelled: `${event.name} has been cancelled.` };
+      const messages = { registration_locked: `Registration is now closed for ${event.name}.`, preparing: `${event.name} is preparing to begin.`, paused: `${event.name} has been paused by event staff.`, completed: `${event.name} has been marked as completed.`, cancelled: `${event.name} has been cancelled.` };
       if (messages[event.status] && previous.status !== event.status) publishAutomaticEventAnnouncement(req.guild, event, 'status', messages[event.status], req.session.user.id);
       res.json({ ok: true, event });
     } catch (error) {
