@@ -1732,7 +1732,7 @@ tbody tr:hover{background:#5bbfff0b}
     try {
       const channelId = String(req.body?.announcementChannelId || '');
       const channel = req.guild.channels.cache.get(channelId);
-      if (!/^\\d{17,20}$/.test(channelId) || !channel || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) return res.status(400).json({ error: 'Choose a valid announcement channel in this server.' });
+      if (!/^\d{17,20}$/.test(channelId) || !channel || ![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) return res.status(400).json({ error: 'Choose a valid announcement channel in this server.' });
       const event = db.events.createEvent(req.guild.id, req.session.user.id, req.body || {});
       res.json({ ok: true, event });
     } catch (error) {
