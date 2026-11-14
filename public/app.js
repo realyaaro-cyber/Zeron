@@ -1582,7 +1582,7 @@ async function renderEventDetails(eventId){
     const transitions={draft:['registration_open','cancelled'],registration_open:['registration_locked','cancelled'],registration_locked:['preparing','cancelled'],preparing:['active','cancelled'],active:['paused','completed','cancelled'],paused:['active','cancelled'],completed:[],cancelled:[]};
     const availableTransitions=(transitions[event.status]||[]).filter(status=>!(isTournament&&event.status==='registration_locked'&&status==='preparing'));
     const actions=canHost?availableTransitions.map(status=>`<button type="button" class="btn ${status==='completed'?'primary':''}" data-event-status="${status}">${status==='registration_open'?'Open registration':status.replaceAll('_',' ')}</button>`).join(''):'';
-    const participants=data.participants.length?data.participants.map((person,index)=>`<div class="rr-row"><span class="rw-level-badge">${index+1}</span><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="muted">${new Date(person.joined_at).toLocaleDateString()}</span></div>`).join(''):'<p class="muted">No participants registered yet.</p>';
+    const participants=data.participants.length?data.participants.map((person,index)=>`<div class="rr-row"><span class="rw-level-badge">${index+1}</span><span class="rr-info">${escapeHtml(person.display_name||person.user_id)}</span><span class="muted">${new Date(person.joined_at).toLocaleDateString()}</span></div>`).join(''):'<p class="muted">No participants registered yet.</p>';
     const staff=data.staff.length?data.staff.map(person=>`<div class="rr-row"><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="rw-level-badge">${escapeHtml(person.role)}</span>${data.isAdmin?`<button type="button" class="btn" data-staff-remove="${escapeHtml(person.user_id)}" data-staff-role="${escapeHtml(person.role)}">Remove</button>`:''}</div>`).join(''):'<p class="muted">No event staff assigned.</p>';
     const staffTools=data.isAdmin?`<div style="margin-top:14px"><div class="field"><label for="event-staff-search">Find a server member</label><input id="event-staff-search" maxlength="32" placeholder="Search username or server nickname"><div id="event-staff-results" style="display:grid;gap:6px;margin-top:8px"></div></div><div class="field"><label for="event-staff-role">Staff role</label><select id="event-staff-role"><option value="host">Event Host</option><option value="referee">Referee</option><option value="scorekeeper">Scorekeeper</option></select></div><p class="muted">Event staff can access only the events they are assigned to.</p></div>`:'';
     const announcementTools=`<div class="panel card" style="margin-bottom:14px"><h3>Automatic announcements</h3><p class="muted">Every event update is posted automatically in <strong>#${escapeHtml(data.channels.find(channel=>channel.id===event.announcement_channel_id)?.name||'selected channel')}</strong>. Round results are announced after the full round is complete.</p></div>`;
@@ -1606,7 +1606,7 @@ async function renderEventDetails(eventId){
         const participantLabel=id=>{
           if(!id)return 'TBD';
           const person=data.participants.find(item=>String(item.user_id)===String(id));
-          return person?String(person.user_id):String(id);
+          return person?String(person.display_name||person.user_id):String(id);
         };
         const roundHtml=rounds.map(round=>{
           const roundMatches=matches.filter(match=>Number(match.round_number)===round);
