@@ -184,6 +184,15 @@ function createEventService(db) {
       return getEvent(guildId, eventId);
     },
 
+    resetRegistrationToDraft(guildId, eventId, actorId) {
+      const event = getEvent(guildId, eventId);
+      if (!event || event.status !== 'registration_open') return false;
+      db.prepare("UPDATE events SET status = 'draft', updated_at = ? WHERE guild_id = ? AND id = ?")
+        .run(Date.now(), String(guildId), Number(eventId));
+      log(eventId, guildId, actorId, 'registration_announcement_failed');
+      return true;
+    },
+
     joinEvent(guildId, eventId, userId) {
       return db.transaction(() => {
         const event = getEvent(guildId, eventId);
