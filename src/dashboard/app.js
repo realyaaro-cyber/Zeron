@@ -387,7 +387,7 @@ function createDashboard({ db, client }) {
       res.status(500).json({ error: 'Could not save settings.' });
     }
   });
-  app.get('/api/guild/:guildId/analytics', requireLogin, requireGuild, (req, res) => {
+  app.get('/api/guild/:guildId/analytics', requireLogin, requireGuild, async (req, res) => {
     try {
       const guildId = req.guild.id;
       const xp = db.prepare(
@@ -431,7 +431,32 @@ function createDashboard({ db, client }) {
         ticketCategoryOn: Boolean(db.getTicketConfig(guildId).category_id)
       };
 
-      res.json({ xp, economy, transactions, moderation, topXp, recentModeration, recentTransactions, features });
+      const userIds = [...new Set([
+        ...topXp.map(row => String(row.user_id)),
+        ...recentModeration.flatMap(row => [row.target_id, row.moderator_id].filter(Boolean).map(String)),
+        ...recentTransactions.map(row => String(row.user_id))
+      ])];
+      const displayNames = new Map();
+      await Promise.all(userIds.map(async userId => {
+        const member = req.guild.members.cache.get(userId) || await req.guild.members.fetch(userId).catch(() => null);
+        if (member) {
+          displayNames.set(userId, member.displayName || member.user.globalName || member.user.username);
+          return;
+        }
+        const user = await client.users.fetch(userId).catch(() => null);
+        if (user) displayNames.set(userId, user.globalName || user.username);
+      }));
+      const nameFor = userId => displayNames.get(String(userId)) || String(userId);
+      res.json({
+        xp, economy, transactions, moderation, features,
+        topXp: topXp.map(row => ({ ...row, display_name: nameFor(row.user_id) })),
+        recentModeration: recentModeration.map(row => ({
+          ...row,
+          target_display_name: row.target_id ? nameFor(row.target_id) : '—',
+          moderator_display_name: row.moderator_id ? nameFor(row.moderator_id) : 'System'
+        })),
+        recentTransactions: recentTransactions.map(row => ({ ...row, display_name: nameFor(row.user_id) }))
+      });
     } catch (error) {
       console.error('Analytics query failed:', error);
       res.status(500).json({ error: 'Could not load server analytics.' });
