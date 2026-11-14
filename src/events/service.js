@@ -333,6 +333,16 @@ function createEventService(db) {
         .all(String(guildId), Number(eventId));
     },
 
+    listMatchScores(guildId, eventId) {
+      return db.prepare('SELECT match_id, user_id, score FROM event_scores WHERE guild_id = ? AND event_id = ? ORDER BY match_id, user_id')
+        .all(String(guildId), Number(eventId));
+    },
+
+    getAnnouncement(guildId, eventId, type) {
+      return db.prepare('SELECT * FROM event_announcements WHERE guild_id = ? AND event_id = ? AND announcement_type = ? ORDER BY id DESC LIMIT 1')
+        .get(String(guildId), Number(eventId), String(type)) || null;
+    },
+
     recordMatchResult(guildId, eventId, matchId, scoreA, scoreB, actorId) {
       return db.transaction(() => {
         const event = getEvent(guildId, eventId);

@@ -1674,8 +1674,8 @@ async function renderEventDetails(eventId){
       const button=buttonEvent.currentTarget;
       button.disabled=true;button.textContent='Generating…';
       try{
-        await api(`/api/guild/${currentGuild}/events/${eventId}/bracket`,{method:'POST',body:JSON.stringify({})});
-        toast('Tournament bracket generated.');
+        const result=await api(`/api/guild/${currentGuild}/events/${eventId}/bracket`,{method:'POST',body:JSON.stringify({})});
+        toast(result.announcementSent===false?'Bracket generated, but the Discord announcement could not be posted. Check channel permissions.':'Tournament bracket generated and Round 1 announcement posted.');
         await renderEventDetails(eventId);
       }catch(error){toast(error.message,true);button.disabled=false;button.textContent='Generate bracket';}
     });
@@ -1689,8 +1689,8 @@ async function renderEventDetails(eventId){
         if(scoreA===scoreB)return toast('A tied score needs to be resolved before saving the result.',true);
         button.disabled=true;button.textContent='Saving…';
         try{
-          await api(`/api/guild/${currentGuild}/events/${eventId}/matches/${form.dataset.matchResult}/result`,{method:'POST',body:JSON.stringify({scoreA,scoreB})});
-          toast('Match result saved.');
+          const result=await api(`/api/guild/${currentGuild}/events/${eventId}/matches/${form.dataset.matchResult}/result`,{method:'POST',body:JSON.stringify({scoreA,scoreB})});
+          toast(result.announcementUpdated===false?'Score saved, but the round announcement could not be updated. Check channel permissions.':result.nextRoundPublished===false?'Score saved and current round updated, but the next-round announcement could not be posted.':'Score saved. The round announcement has been updated.');
           await renderEventDetails(eventId);
         }catch(error){toast(error.message,true);button.disabled=false;button.textContent='Save result';}
       });
