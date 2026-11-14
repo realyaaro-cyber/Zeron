@@ -3013,6 +3013,7 @@ const fishWaitMessages = new Map();
           if (!openEvents.length) return interaction.reply({ content: 'There are no events accepting registrations right now.', ephemeral: true });
           if (openEvents.length === 1) {
             const result = db.events.joinEvent(interaction.guildId, openEvents[0].id, interaction.user.id);
+            if (result.ok && result.locked) { const event = db.events.getEvent(interaction.guildId, openEvents[0].id); const channel = event?.announcement_channel_id ? interaction.guild.channels.cache.get(event.announcement_channel_id) : null; if (channel) channel.send({ content: `Registration is now full and closed for ${event.name}.`, allowedMentions: { parse: [] } }).then(message => db.events.recordAnnouncement(interaction.guildId, event.id, channel.id, message.id, 'registration', interaction.user.id)).catch(error => console.error('Event capacity announcement failed:', error.message)); }
             const message = result.ok
               ? (result.locked ? 'You are registered. Registration is now full and locked.' : 'You are registered for the event.')
               : result.reason === 'already_joined' ? 'You are already registered for this event.'
