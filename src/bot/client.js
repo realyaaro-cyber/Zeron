@@ -3028,6 +3028,10 @@ const fishWaitMessages = new Map();
           : result.reason === 'full' ? 'This event has reached capacity.'
           : result.reason === 'closed' ? 'Registration for this event is closed.'
           : 'This event could not be found.';
+        if (message === 'You are registered for the event.' || message === 'You are already registered for this event.') {
+          const sendPlainReply = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+          return sendPlainReply({ content: message, flags: MessageFlags.Ephemeral });
+        }
         return interaction.reply({ content: message, ephemeral: true });
       }
 
