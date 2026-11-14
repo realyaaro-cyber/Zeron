@@ -1488,18 +1488,18 @@ async function renderBirthdays(){
 async function renderEvents(){
   content.innerHTML='<div class="panel card"><p class="muted">Loading events…</p></div>';
   try{
-    const data=await api(\`/api/guild/\${currentGuild}/events\`);
+    const data=await api(\`/api/guild/${currentGuild}/events\`);
     const statusLabel=value=>String(value||'').replaceAll('_',' ');
     const eventCards=data.events.length?data.events.map(event=>\`
       <article class="panel card" style="margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap">
           <div style="min-width:0;flex:1">
-            <div class="eyebrow">EVENT #\${event.id} · \${escapeHtml(event.event_type.replaceAll('_',' '))}</div>
-            <h3 style="margin:5px 0 7px">\${escapeHtml(event.name)}</h3>
-            <p class="muted" style="margin:0">\${escapeHtml(event.description||'No description provided.')}</p>
-            <div class="muted" style="font-size:12px;margin-top:10px">\${escapeHtml(statusLabel(event.status))} · \${event.participantCount}/\${event.capacity} participants</div>
+            <div class="eyebrow">EVENT #${event.id} · ${escapeHtml(event.event_type.replaceAll('_',' '))}</div>
+            <h3 style="margin:5px 0 7px">${escapeHtml(event.name)}</h3>
+            <p class="muted" style="margin:0">${escapeHtml(event.description||'No description provided.')}</p>
+            <div class="muted" style="font-size:12px;margin-top:10px">${escapeHtml(statusLabel(event.status))} · ${event.participantCount}/${event.capacity} participants</div>
           </div>
-          <button class="btn" type="button" data-event-view="\${event.id}">Manage →</button>
+          <button class="btn" type="button" data-event-view="${event.id}">Manage →</button>
         </div>
       </article>\`).join(''):'<div class="panel card empty"><h3>No events yet</h3><p>Create your first event below. Events begin as drafts until registration is opened.</p></div>';
     const createForm=data.isAdmin?\`
@@ -1518,53 +1518,80 @@ async function renderEvents(){
           <button class="btn primary" type="submit">Create draft event</button>
         </form>
       </div>\`: '';
-    content.innerHTML=\`<div class="panel card" style="margin-bottom:18px"><div class="eyebrow">ZERON · COMMUNITY</div><h2 style="margin:5px 0">Event Management</h2><p class="muted" style="margin:0">\${data.isAdmin?'Create and manage events for this server.':'You can manage only the events where you have been assigned as staff.'}</p></div>\${createForm}<div class="section-head"><div><h3>Events</h3><p class="muted">Drafts, registration, live events and history.</p></div></div>\${eventCards}\`;
+    content.innerHTML=\`<div class="panel card" style="margin-bottom:18px"><div class="eyebrow">ZERON · COMMUNITY</div><h2 style="margin:5px 0">Event Management</h2><p class="muted" style="margin:0">${data.isAdmin?'Create and manage events for this server.':'You can manage only the events where you have been assigned as staff.'}</p></div>${createForm}<div class="section-head"><div><h3>Events</h3><p class="muted">Drafts, registration, live events and history.</p></div></div>${eventCards}\`;
     const form=document.getElementById('event-create-form');
     form?.addEventListener('submit',async event=>{
       event.preventDefault();
       const button=form.querySelector('button[type="submit"]');
       const payload={name:form.elements.namedItem('name').value.trim(),type:form.elements.namedItem('type').value,capacity:Number(form.elements.namedItem('capacity').value),description:form.elements.namedItem('description').value,rules:form.elements.namedItem('rules').value};
       button.disabled=true;button.textContent='Creating…';
-      try{await api(\`/api/guild/\${currentGuild}/events\`,{method:'POST',body:JSON.stringify(payload)});toast('Draft event created.');await renderEvents();}
+      try{await api(\`/api/guild/${currentGuild}/events\`,{method:'POST',body:JSON.stringify(payload)});toast('Draft event created.');await renderEvents();}
       catch(error){toast(error.message,true);button.disabled=false;button.textContent='Create draft event';}
     });
     content.querySelectorAll('[data-event-view]').forEach(button=>button.addEventListener('click',()=>renderEventDetails(button.dataset.eventView)));
   }catch(error){
-    content.innerHTML=\`<div class="panel card empty"><h3>Could not load Event Management</h3><p>\${escapeHtml(error.message)}</p></div>\`;
+    content.innerHTML=\`<div class="panel card empty"><h3>Could not load Event Management</h3><p>${escapeHtml(error.message)}</p></div>\`;
   }
 }
 
 async function renderEventDetails(eventId){
   content.innerHTML='<div class="panel card"><p class="muted">Loading event details…</p></div>';
   try{
-    const data=await api(\`/api/guild/\${currentGuild}/events/\${eventId}\`);
+    const data=await api(\`/api/guild/${currentGuild}/events/${eventId}\`);
     const event=data.event;
     const canHost=data.isAdmin||data.staffRoles.includes('host');
     const transitions={draft:['registration_open','cancelled'],registration_open:['registration_locked','cancelled'],registration_locked:['preparing','cancelled'],preparing:['active','cancelled'],active:['paused','completed','cancelled'],paused:['active','cancelled'],completed:[],cancelled:[]};
-    const actions=canHost?(transitions[event.status]||[]).map(status=>\`<button type="button" class="btn \${status==='completed'?'primary':''}" data-event-status="\${status}">\${status==='registration_open'?'Open registration':status.replaceAll('_',' ')}</button>\`).join(''):'';
-    const participants=data.participants.length?data.participants.map((person,index)=>\`<div class="rr-row"><span class="rw-level-badge">\${index+1}</span><span class="rr-info">\${escapeHtml(person.user_id)}</span><span class="muted">\${new Date(person.joined_at).toLocaleDateString()}</span></div>\`).join(''):'<p class="muted">No participants registered yet.</p>';
-    const staff=data.staff.length?data.staff.map(person=>\`<div class="rr-row"><span class="rr-info">\${escapeHtml(person.user_id)}</span><span class="rw-level-badge">\${escapeHtml(person.role)}</span></div>\`).join(''):'<p class="muted">No event staff assigned.</p>';
-    const activity=data.activity.length?data.activity.map(item=>\`<div class="rr-row"><span class="rr-info">\${escapeHtml(item.action.replaceAll('_',' '))}</span><small class="muted">\${new Date(item.created_at).toLocaleString()}</small></div>\`).join(''):'<p class="muted">No activity recorded yet.</p>';
+    const actions=canHost?(transitions[event.status]||[]).map(status=>\`<button type="button" class="btn ${status==='completed'?'primary':''}" data-event-status="${status}">${status==='registration_open'?'Open registration':status.replaceAll('_',' ')}</button>\`).join(''):'';
+    const participants=data.participants.length?data.participants.map((person,index)=>\`<div class="rr-row"><span class="rw-level-badge">${index+1}</span><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="muted">${new Date(person.joined_at).toLocaleDateString()}</span></div>\`).join(''):'<p class="muted">No participants registered yet.</p>';
+    const staff=data.staff.length?data.staff.map(person=>`<div class="rr-row"><span class="rr-info">${escapeHtml(person.user_id)}</span><span class="rw-level-badge">${escapeHtml(person.role)}</span>${data.isAdmin?`<button type="button" class="btn" data-staff-remove="${escapeHtml(person.user_id)}" data-staff-role="${escapeHtml(person.role)}">Remove</button>`:''}</div>`).join(''):'<p class="muted">No event staff assigned.</p>';
+    const staffTools=data.isAdmin?`<div style="margin-top:14px"><div class="field"><label for="event-staff-search">Find a server member</label><input id="event-staff-search" maxlength="32" placeholder="Search username or server nickname"><div id="event-staff-results" style="display:grid;gap:6px;margin-top:8px"></div></div><div class="field"><label for="event-staff-role">Staff role</label><select id="event-staff-role"><option value="host">Event Host</option><option value="referee">Referee</option><option value="scorekeeper">Scorekeeper</option></select></div><p class="muted">Event staff can access only the events they are assigned to.</p></div>`:'';
+    const activity=data.activity.length?data.activity.map(item=>\`<div class="rr-row"><span class="rr-info">${escapeHtml(item.action.replaceAll('_',' '))}</span><small class="muted">${new Date(item.created_at).toLocaleString()}</small></div>\`).join(''):'<p class="muted">No activity recorded yet.</p>';
     content.innerHTML=\`
       <div class="panel card" style="margin-bottom:14px">
         <button type="button" class="btn" id="event-back">← All events</button>
-        <div class="eyebrow" style="margin-top:16px">EVENT #\${event.id} · \${escapeHtml(event.event_type.replaceAll('_',' '))}</div>
-        <h2 style="margin:5px 0">\${escapeHtml(event.name)}</h2>
-        <p class="muted">\${escapeHtml(event.description||'No description provided.')}</p>
-        <div class="stats" style="margin:18px 0"><div class="stat"><div class="stat-label">STATUS</div><div class="stat-value" style="font-size:18px">\${escapeHtml(event.status.replaceAll('_',' '))}</div></div><div class="stat"><div class="stat-label">REGISTERED</div><div class="stat-value">\${data.participants.length}/\${event.capacity}</div></div><div class="stat"><div class="stat-label">STAFF</div><div class="stat-value">\${data.staff.length}</div></div></div>
-        \${actions?'<div style="display:flex;gap:8px;flex-wrap:wrap">'+actions+'</div>':''}
+        <div class="eyebrow" style="margin-top:16px">EVENT #${event.id} · ${escapeHtml(event.event_type.replaceAll('_',' '))}</div>
+        <h2 style="margin:5px 0">${escapeHtml(event.name)}</h2>
+        <p class="muted">${escapeHtml(event.description||'No description provided.')}</p>
+        <div class="stats" style="margin:18px 0"><div class="stat"><div class="stat-label">STATUS</div><div class="stat-value" style="font-size:18px">${escapeHtml(event.status.replaceAll('_',' '))}</div></div><div class="stat"><div class="stat-label">REGISTERED</div><div class="stat-value">${data.participants.length}/${event.capacity}</div></div><div class="stat"><div class="stat-label">STAFF</div><div class="stat-value">${data.staff.length}</div></div></div>
+        ${actions?'<div style="display:flex;gap:8px;flex-wrap:wrap">'+actions+'</div>':''}
       </div>
-      <div class="panel card" style="margin-bottom:14px"><h3>Rules</h3><p class="muted" style="white-space:pre-wrap">\${escapeHtml(event.rules||'No rules have been added.')}</p></div>
-      <div class="panel card" style="margin-bottom:14px"><h3>Participants</h3>\${participants}</div>
-      <div class="panel card" style="margin-bottom:14px"><h3>Event staff</h3>\${staff}</div>
-      <div class="panel card"><h3>Activity log</h3>\${activity}</div>\`;
+      <div class="panel card" style="margin-bottom:14px"><h3>Rules</h3><p class="muted" style="white-space:pre-wrap">${escapeHtml(event.rules||'No rules have been added.')}</p></div>
+      <div class="panel card" style="margin-bottom:14px"><h3>Participants</h3>${participants}</div>
+      <div class="panel card" style="margin-bottom:14px"><h3>Event staff</h3>${staff}${staffTools}</div>
+      <div class="panel card"><h3>Activity log</h3>${activity}</div>\`;
     document.getElementById('event-back')?.addEventListener('click',renderEvents);
-    content.querySelectorAll('[data-event-status]').forEach(button=>button.addEventListener('click',async()=>{
-      const status=button.dataset.eventStatus;button.disabled=true;
-      try{await api(\`/api/guild/\${currentGuild}/events/\${eventId}/status\`,{method:'POST',body:JSON.stringify({status})});toast('Event status updated.');await renderEventDetails(eventId);}
+    const staffSearch=document.getElementById('event-staff-search');
+    const staffResults=document.getElementById('event-staff-results');
+    let staffSearchTimer;
+    staffSearch?.addEventListener('input',()=>{
+      clearTimeout(staffSearchTimer);
+      const query=staffSearch.value.trim();
+      if(query.length<2){staffResults.innerHTML='';return;}
+      staffSearchTimer=setTimeout(async()=>{
+        try{
+          const result=await api(`/api/guild/${currentGuild}/events/members?q=${encodeURIComponent(query)}`);
+          staffResults.innerHTML=result.members.length?result.members.map(member=>`<button type="button" class="btn" data-staff-add="${escapeHtml(member.id)}">${escapeHtml(member.displayName)} · @${escapeHtml(member.username)}</button>`).join(''):'<small class="muted">No matching members found.</small>';
+          staffResults.querySelectorAll('[data-staff-add]').forEach(button=>button.addEventListener('click',async()=>{
+            const role=document.getElementById('event-staff-role').value;
+            button.disabled=true;
+            try{await api(`/api/guild/${currentGuild}/events/${eventId}/staff`,{method:'POST',body:JSON.stringify({userId:button.dataset.staffAdd,role})});toast('Event staff assigned.');await renderEventDetails(eventId);}
+            catch(error){toast(error.message,true);button.disabled=false;}
+          }));
+        }catch(error){staffResults.innerHTML=`<small class="muted">${escapeHtml(error.message)}</small>`;}
+      },250);
+    });
+    content.querySelectorAll('[data-staff-remove]').forEach(button=>button.addEventListener('click',async()=>{
+      button.disabled=true;
+      try{await api(`/api/guild/${currentGuild}/events/${eventId}/staff/${button.dataset.staffRemove}/${button.dataset.staffRole}`,{method:'DELETE'});toast('Event staff removed.');await renderEventDetails(eventId);}
       catch(error){toast(error.message,true);button.disabled=false;}
     }));
-  }catch(error){content.innerHTML=\`<div class="panel card empty"><h3>Could not load event</h3><p>\${escapeHtml(error.message)}</p><button class="btn" id="event-back">Back to events</button></div>\`;document.getElementById('event-back')?.addEventListener('click',renderEvents);}
+
+    content.querySelectorAll('[data-event-status]').forEach(button=>button.addEventListener('click',async()=>{
+      const status=button.dataset.eventStatus;button.disabled=true;
+      try{await api(\`/api/guild/${currentGuild}/events/${eventId}/status\`,{method:'POST',body:JSON.stringify({status})});toast('Event status updated.');await renderEventDetails(eventId);}
+      catch(error){toast(error.message,true);button.disabled=false;}
+    }));
+  }catch(error){content.innerHTML=\`<div class="panel card empty"><h3>Could not load event</h3><p>${escapeHtml(error.message)}</p><button class="btn" id="event-back">Back to events</button></div>\`;document.getElementById('event-back')?.addEventListener('click',renderEvents);}
 }
 
 /* ZERON: giveaways */
