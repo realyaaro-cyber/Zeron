@@ -253,7 +253,7 @@ function createEventService(db) {
 
     getStaffRoles(guildId, eventId, userId) {
       return db.prepare('SELECT role FROM event_staff WHERE guild_id = ? AND event_id = ? AND user_id = ?')
-        .all(String(guildId), Number(eventId)).map(row => row.role);
+        .all(String(guildId), Number(eventId), String(userId)).map(row => row.role);
     },
 
     canManageEvent(guildId, eventId, userId) {
