@@ -1726,6 +1726,23 @@ tbody tr:hover{background:#5bbfff0b}
     }
   });
 
+  app.get('/api/guild/:guildId/events/members', requireLogin, requireGuild, async (req, res) => {
+    const query = String(req.query.q || '').trim();
+    if (query.length < 2 || query.length > 32) return res.json({ members: [] });
+    try {
+      const matches = await req.guild.members.search({ query, limit: 10 });
+      res.json({
+        members: [...matches.values()].map(member => ({
+          id: member.id,
+          username: member.user.username,
+          displayName: member.displayName
+        }))
+      });
+    } catch (error) {
+      res.status(400).json({ error: 'Could not search server members. Check the bot member access and try again.' });
+    }
+  });
+
   app.get('/api/guild/:guildId/events/:eventId', requireLogin, requireEventAccess, (req, res) => {
     const event = db.events.getEvent(req.guild.id, req.params.eventId);
     if (!event) return res.status(404).json({ error: 'Event not found.' });
@@ -1772,6 +1789,12 @@ tbody tr:hover{background:#5bbfff0b}
     } catch (error) {
       res.status(400).json({ error: error.message || 'Could not assign event staff.' });
     }
+  });
+
+  app.delete('/api/guild/:guildId/events/:eventId/staff/:userId/:role', requireLogin, requireGuild, (req, res) => {
+    const removed = db.events.removeStaff(req.guild.id, req.params.eventId, req.params.userId, req.params.role, req.session.user.id);
+    if (!removed) return res.status(404).json({ error: 'That event staff assignment was not found.' });
+    res.json({ ok: true, staff: db.events.listStaff(req.guild.id, req.params.eventId) });
   });
 
   app.use((err, req, res, next) => {
