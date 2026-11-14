@@ -3000,7 +3000,7 @@ const fishWaitMessages = new Map();
                 .setTitle(`🎉 ${updatedEvent.name} — Registration ${isLocked ? 'Locked' : 'Open'}`)
                 .setDescription(
                   (customMessage || 'Registration is now open. Select Register below to join this event.') +
-                  (isLocked ? '\n\n━━━━━━━━━━━━━━━━━━━━\n🔒 **REGISTRATION LOCKED**' : '')
+                  (isLocked ? '\n\n🔒 **REGISTRATION LOCKED**' : '')
                 )
                 .addFields(
                   { name: 'Format', value: updatedEvent.event_type.replaceAll('_', ' '), inline: true },
