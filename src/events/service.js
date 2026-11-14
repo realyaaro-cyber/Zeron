@@ -300,9 +300,9 @@ function createEventService(db) {
           [participants[i], participants[j]] = [participants[j], participants[i]];
         }
         const now = Date.now();
-        const insert = db.prepare(\`INSERT INTO event_matches
+        const insert = db.prepare(`INSERT INTO event_matches
           (event_id, guild_id, round_number, match_number, participant_a, participant_b, status, bracket_locked, created_at)
-          VALUES (?, ?, 1, ?, ?, ?, 'pending', 1, ?)\`);
+          VALUES (?, ?, 1, ?, ?, ?, 'pending', 1, ?)`);
         for (let i = 0; i < participants.length; i += 2) {
           insert.run(Number(eventId), String(guildId), (i / 2) + 1, participants[i], participants[i + 1], now);
         }
@@ -336,9 +336,9 @@ function createEventService(db) {
         if (a === b) throw new Error('A tied score needs to be resolved before the result can be recorded.');
         const winnerId = a > b ? match.participant_a : match.participant_b;
         const now = Date.now();
-        const insertScore = db.prepare(\`INSERT INTO event_scores
+        const insertScore = db.prepare(`INSERT INTO event_scores
           (match_id, event_id, guild_id, user_id, score, recorded_by, recorded_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)\`);
+          VALUES (?, ?, ?, ?, ?, ?, ?)`);
         insertScore.run(match.id, Number(eventId), String(guildId), match.participant_a, a, String(actorId), now);
         insertScore.run(match.id, Number(eventId), String(guildId), match.participant_b, b, String(actorId), now);
         db.prepare("UPDATE event_matches SET winner_id = ?, status = 'completed', completed_at = ? WHERE id = ?")
@@ -362,9 +362,9 @@ function createEventService(db) {
             log(eventId, guildId, actorId, 'event_champion_decided', { championId });
           } else {
             const roundNumber = match.round_number + 1;
-            const insertNext = db.prepare(\`INSERT INTO event_matches
+            const insertNext = db.prepare(`INSERT INTO event_matches
               (event_id, guild_id, round_number, match_number, participant_a, participant_b, status, bracket_locked, created_at)
-              VALUES (?, ?, ?, ?, ?, ?, 'pending', 1, ?)\`);
+              VALUES (?, ?, ?, ?, ?, ?, 'pending', 1, ?)`);
             for (let i = 0; i < winners.length; i += 2) {
               insertNext.run(Number(eventId), String(guildId), roundNumber, (i / 2) + 1, winners[i], winners[i + 1], now);
             }
@@ -377,9 +377,9 @@ function createEventService(db) {
     },
 
     getScoreLeaderboard(guildId, eventId) {
-      return db.prepare(\`SELECT user_id, MAX(score) AS highest_score, SUM(score) AS total_score, COUNT(*) AS scored_matches
+      return db.prepare(`SELECT user_id, MAX(score) AS highest_score, SUM(score) AS total_score, COUNT(*) AS scored_matches
         FROM event_scores WHERE guild_id = ? AND event_id = ?
-        GROUP BY user_id ORDER BY highest_score DESC, total_score DESC, user_id ASC\`)
+        GROUP BY user_id ORDER BY highest_score DESC, total_score DESC, user_id ASC`)
         .all(String(guildId), Number(eventId));
     },
 
