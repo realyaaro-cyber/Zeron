@@ -10,6 +10,7 @@ const { commands, GUILD_ONLY_COMMANDS } = require('../commands/definitions');
 const { ZERON_FEATURE_KNOWLEDGE } = require('./knowledge');
 const { renderRankCard, loadPresetBackground, RANK_BACKGROUND_PRESETS, downloadAvatar } = require('./rank-card');
 const { addText: addV2Text, embedToContainer: convertEmbedToContainer, toV2Payload: buildV2Payload } = require('./components-v2');
+const { createMusicService } = require('./music');
 
 const SHOP_ITEMS = [
   { id: 'lucky_charm', name: 'Lucky Charm', price: 250, resale: 125, emoji: '🍀' },
@@ -989,6 +990,7 @@ function createClient(db) {
     ],
     partials: [Partials.Channel, Partials.Message, Partials.Reaction]
   });
+  const musicService = createMusicService(client);
 
   // Tickets: ticket types, category placement, claim, and transcript on close.
   function ticketColor(hex) {
@@ -3678,6 +3680,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
       });
     }
       const { commandName } = interaction;
+      if (commandName === 'music') return musicService.handle(interaction);
       if (!interaction.guild || !interaction.guildId) return interaction.reply({ content: 'This command only works in a server.', ephemeral: true });
       if (commandName === 'starboard') {
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
