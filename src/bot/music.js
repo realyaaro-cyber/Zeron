@@ -73,6 +73,43 @@ function createMusicService(client) {
     return sessions.get(guildId) || null;
   }
 
+  function updateEmptyChannelTimer(session) {
+    const channel = client.channels.cache.get(session.channelId);
+    if (!channel || !channel.members) return;
+
+    const hasHumanMembers = channel.members.some(member => !member.user.bot);
+    if (hasHumanMembers) {
+      if (session.emptyChannelTimer) clearTimeout(session.emptyChannelTimer);
+      session.emptyChannelTimer = null;
+      return;
+    }
+
+    if (session.emptyChannelTimer) return;
+    session.emptyChannelTimer = setTimeout(() => {
+      session.emptyChannelTimer = null;
+      if (getSession(session.guildId) !== session) return;
+
+      const latestChannel = client.channels.cache.get(session.channelId);
+      const stillEmpty = latestChannel && latestChannel.members &&
+        !latestChannel.members.some(member => !member.user.bot);
+      if (stillEmpty) {
+        console.log('Music: leaving empty voice channel in guild ' + session.guildId + ' after 2 minutes.');
+        destroySession(session.guildId);
+      } else {
+        updateEmptyChannelTimer(session);
+      }
+    }, 2 * 60 * 1000);
+    session.emptyChannelTimer.unref?.();
+  }
+
+  client.on('voiceStateUpdate', (oldState, newState) => {
+    const session = getSession(newState.guild.id);
+    if (!session) return;
+    if (oldState.channelId === session.channelId || newState.channelId === session.channelId) {
+      updateEmptyChannelTimer(session);
+    }
+  });
+
   async function startNext(session) {
     if (session.starting || session.current) return;
     session.starting = true;
@@ -125,6 +162,8 @@ function createMusicService(client) {
   function destroySession(guildId) {
     const session = sessions.get(guildId);
     if (!session) return false;
+    if (session.emptyChannelTimer) clearTimeout(session.emptyChannelTimer);
+    session.emptyChannelTimer = null;
     session.queue.length = 0;
     session.player.stop(true);
     if (session.ffmpeg && !session.ffmpeg.killed) session.ffmpeg.kill('SIGKILL');
@@ -224,9 +263,14 @@ function createMusicService(client) {
           void startNext(session);
         });
         connection.on('stateChange', (_oldState, newState) => {
-          if (newState.status === VoiceConnectionStatus.Destroyed) sessions.delete(guildId);
+          if (newState.status === VoiceConnectionStatus.Destroyed) {
+            if (session.emptyChannelTimer) clearTimeout(session.emptyChannelTimer);
+            session.emptyChannelTimer = null;
+            if (sessions.get(guildId) === session) sessions.delete(guildId);
+          }
         });
         sessions.set(guildId, session);
+        updateEmptyChannelTimer(session);
       }
 
       if (session.queue.length >= MAX_QUEUE_SIZE) {
