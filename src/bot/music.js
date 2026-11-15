@@ -135,6 +135,8 @@ function createMusicService(client) {
 
   async function handle(interaction) {
     const action = interaction.options.getString('action', true);
+    if (action === 'play') await interaction.deferReply();
+    const reply = payload => interaction.deferred ? interaction.editReply(payload) : interaction.reply(payload);
     const guild = interaction.guild;
     const guildId = interaction.guildId;
     const member = await guild.members.fetch(interaction.user.id).catch(() => null);
@@ -153,23 +155,23 @@ function createMusicService(client) {
           }
           urlHost = parsedUrl.hostname;
         } catch {
-          return interaction.reply({ content: 'Provide a valid direct HTTP or HTTPS audio URL.', ephemeral: true });
+          return reply({ content: 'Provide a valid direct HTTP or HTTPS audio URL.', ephemeral: true });
         }
       }
       if (Boolean(url) === Boolean(file)) {
-        return interaction.reply({
+        return reply({
           content: 'Choose exactly one source: provide a direct audio URL or attach an audio file.',
           ephemeral: true
         });
       }
       if (file && (!file.contentType || !file.contentType.toLowerCase().startsWith('audio/') || file.size > MAX_AUDIO_BYTES)) {
-        return interaction.reply({ content: 'Attach an audio file no larger than 25 MB.', ephemeral: true });
+        return reply({ content: 'Attach an audio file no larger than 25 MB.', ephemeral: true });
       }
       if (!voiceChannel || voiceChannel.type !== ChannelType.GuildVoice) {
-        return interaction.reply({ content: 'Join a regular Voice Channel first. Stage Channels are not supported.', ephemeral: true });
+        return reply({ content: 'Join a regular Voice Channel first. Stage Channels are not supported.', ephemeral: true });
       }
       if (session && session.channelId !== voiceChannel.id) {
-        return interaction.reply({ content: 'ZERON is already playing in another voice channel in this server. Use /music action:leave there first.', ephemeral: true });
+        return reply({ content: 'ZERON is already playing in another voice channel in this server. Use /music action:leave there first.', ephemeral: true });
       }
 
       if (!session) {
@@ -177,7 +179,7 @@ function createMusicService(client) {
         const permissions = voiceChannel.permissionsFor(botMember);
         const required = [PermissionFlagsBits.Connect, PermissionFlagsBits.Speak];
         if (!permissions || !permissions.has(required)) {
-          return interaction.reply({ content: 'ZERON needs Connect and Speak permissions in that voice channel.', ephemeral: true });
+          return reply({ content: 'ZERON needs Connect and Speak permissions in that voice channel.', ephemeral: true });
         }
         const connection = joinVoiceChannel({
           channelId: voiceChannel.id,
@@ -190,7 +192,7 @@ function createMusicService(client) {
           await entersState(connection, VoiceConnectionStatus.Ready, 20000);
         } catch {
           connection.destroy();
-          return interaction.reply({ content: 'ZERON could not connect. Check its voice permissions and try again.', ephemeral: true });
+          return reply({ content: 'ZERON could not connect. Check its voice permissions and try again.', ephemeral: true });
         }
 
         const player = createAudioPlayer({
@@ -228,7 +230,7 @@ function createMusicService(client) {
       }
 
       if (session.queue.length >= MAX_QUEUE_SIZE) {
-        return interaction.reply({ content: 'The music queue is full (25 tracks).', ephemeral: true });
+        return reply({ content: 'The music queue is full (25 tracks).', ephemeral: true });
       }
       const track = {
         title: file ? file.name : urlHost,
@@ -241,13 +243,13 @@ function createMusicService(client) {
         const started = await startNext(session);
         if (!started) {
           const reason = session.lastError || 'The audio stream could not be decoded.';
-          return interaction.reply({
+          return reply({
             content: 'Could not start playback for **' + track.title + '**. ' + reason,
             ephemeral: true
           });
         }
       }
-      return interaction.reply({
+      return reply({
         content: (wasIdle ? '🎵 Added to playback: ' : '➕ Added to queue: ') + '**' + track.title + '**.'
       });
     }
