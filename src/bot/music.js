@@ -71,21 +71,24 @@ function createMusicService(client) {
 
   async function startNext(session) {
     if (session.starting || session.current) return;
-    const track = session.queue.shift();
-    if (!track) return;
     session.starting = true;
-    session.current = track;
     try {
-      const stream = await getAudioStream(track.url);
-      const resource = createAudioResource(stream, {
-        inputType: StreamType.Arbitrary,
-        metadata: track
-      });
-      session.player.play(resource);
-    } catch (error) {
-      session.current = null;
-      session.lastError = error.message;
-      await startNext(session);
+      while (session.queue.length && !session.current) {
+        const track = session.queue.shift();
+        session.current = track;
+        try {
+          const stream = await getAudioStream(track.url);
+          const resource = createAudioResource(stream, {
+            inputType: StreamType.Arbitrary,
+            metadata: track
+          });
+          session.player.play(resource);
+          return;
+        } catch (error) {
+          session.current = null;
+          session.lastError = error.message;
+        }
+      }
     } finally {
       session.starting = false;
     }
