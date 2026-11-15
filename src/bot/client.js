@@ -48,7 +48,7 @@ const HELP_FOLDERS = [
     id: 'member',
     label: '👥 Member commands',
     description: 'Commands every member can use.',
-    names: ['ping', 'serverinfo', 'userinfo', 'rank', 'leaderboard', 'pay', 'inventory', 'profile', 'bank', 'collectibles', 'fish', 'play', 'transactions', 'birthday', 'guild', 'afk', 'roblox']
+    names: ['ping', 'serverinfo', 'userinfo', 'rank', 'leaderboard', 'pay', 'inventory', 'profile', 'bank', 'collectibles', 'fish', 'play', 'transactions', 'birthday', 'guild', 'afk', 'roblox', 'music']
   }
 ];
 
