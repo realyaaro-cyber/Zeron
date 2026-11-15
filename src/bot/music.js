@@ -4,7 +4,9 @@ const dns = require('node:dns').promises;
 const net = require('node:net');
 const { Readable } = require('node:stream');
 const { spawn } = require('node:child_process');
-const ffmpegPath = require('ffmpeg-static');
+const fs = require('node:fs');
+const bundledFfmpegPath = require('ffmpeg-static');
+const ffmpegPath = process.env.FFMPEG_PATH || (bundledFfmpegPath && fs.existsSync(bundledFfmpegPath) ? bundledFfmpegPath : 'ffmpeg');
 const {
   AudioPlayerStatus,
   NoSubscriberBehavior,
@@ -79,7 +81,6 @@ function createMusicService(client) {
         const track = session.queue.shift();
         session.current = track;
         try {
-          if (!ffmpegPath) throw new Error('FFmpeg is unavailable on the host.');
           const stream = await getAudioStream(track.url);
           const ffmpeg = spawn(ffmpegPath, [
             '-hide_banner', '-loglevel', 'error',
@@ -92,7 +93,7 @@ function createMusicService(client) {
           ffmpeg.stderr.on('data', chunk => { ffmpegError = (ffmpegError + chunk).slice(-2000); });
           const ffmpegStarted = new Promise((resolve, reject) => {
             ffmpeg.once('spawn', resolve);
-            ffmpeg.once('error', error => reject(new Error('FFmpeg failed to start: ' + error.message)));
+            ffmpeg.once('error', error => reject(new Error('FFmpeg executable was not found. Install FFmpeg on the host or set FFMPEG_PATH. (' + error.message + ')')));
           });
           stream.on('error', error => ffmpeg.stdin.destroy(error));
           ffmpeg.stdin.on('error', () => {});
