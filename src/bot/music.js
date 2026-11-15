@@ -115,6 +115,18 @@ function createMusicService(client) {
     if (action === 'play') {
       const url = interaction.options.getString('url');
       const file = interaction.options.getAttachment('file');
+      let urlHost = 'audio stream';
+      if (url) {
+        try {
+          const parsedUrl = new URL(url);
+          if (!['https:', 'http:'].includes(parsedUrl.protocol) || parsedUrl.username || parsedUrl.password) {
+            throw new Error('invalid protocol');
+          }
+          urlHost = parsedUrl.hostname;
+        } catch {
+          return interaction.reply({ content: 'Provide a valid direct HTTP or HTTPS audio URL.', ephemeral: true });
+        }
+      }
       if (Boolean(url) === Boolean(file)) {
         return interaction.reply({
           content: 'Choose exactly one source: provide a direct audio URL or attach an audio file.',
@@ -191,7 +203,7 @@ function createMusicService(client) {
         if (voiceChannel.type === ChannelType.GuildStageVoice) {
           const me = guild.members.me;
           const voiceState = me && me.voice;
-          if (voiceState && voiceState.suppress) {
+          if (voiceState) {
             await voiceState.setSuppressed(false).catch(async () => {
               await voiceState.setRequestToSpeak(true).catch(() => {});
             });
@@ -203,7 +215,7 @@ function createMusicService(client) {
         return interaction.reply({ content: 'The music queue is full (25 tracks).', ephemeral: true });
       }
       const track = {
-        title: file ? file.name : new URL(url).hostname,
+        title: file ? file.name : urlHost,
         url: file ? file.url : url,
         requestedBy: interaction.user.id
       };
@@ -218,7 +230,7 @@ function createMusicService(client) {
     if (!session) {
       return interaction.reply({ content: 'ZERON is not connected to a voice channel right now.', ephemeral: true });
     }
-    if (voiceChannel && voiceChannel.id !== session.channelId) {
+    if (!voiceChannel || voiceChannel.id !== session.channelId) {
       return interaction.reply({ content: 'Join ZERON’s voice channel to control its music.', ephemeral: true });
     }
 
