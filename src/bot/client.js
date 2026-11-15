@@ -991,7 +991,7 @@ function createClient(db) {
     ],
     partials: [Partials.Channel, Partials.Message, Partials.Reaction]
   });
-  const musicService = createMusicService(client);
+  const musicService = createMusicService(client, db);
 
   // Tickets: ticket types, category placement, claim, and transcript on close.
   function ticketColor(hex) {
