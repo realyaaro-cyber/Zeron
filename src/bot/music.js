@@ -192,8 +192,8 @@ function createMusicService(client, db) {
   async function handleConfig(interaction) {
     const reply = payload => interaction.reply({ ...payload, ephemeral: true });
     if (!interaction.guildId) return reply({ content: 'Playlist configuration only works inside a server.' });
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-      return reply({ content: 'You need Manage Server permission to configure the music playlist.' });
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+      return reply({ content: 'You need Administrator permission to configure the music playlist.' });
     }
     const guildId = interaction.guildId;
     const action = interaction.options.getString('action', true);
@@ -360,6 +360,7 @@ function createMusicService(client, db) {
           connection,
           player,
           queue: [],
+          repeatTracks: [],
           current: null,
           starting: false,
           lastError: null
@@ -369,6 +370,9 @@ function createMusicService(client, db) {
           session.current = null;
           if (session.ffmpeg && !session.ffmpeg.killed) session.ffmpeg.kill('SIGKILL');
           session.ffmpeg = null;
+          if (!session.queue.length && session.repeatTracks?.length) {
+            session.queue.push(...session.repeatTracks.map(track => ({ ...track })));
+          }
           void startNext(session);
         });
         player.on('error', error => {
@@ -393,6 +397,11 @@ function createMusicService(client, db) {
         return reply({ content: 'The music queue can hold up to 25 queued tracks. There is not enough room for this selection.', ephemeral: true });
       }
       const wasIdle = !session.current && !session.starting;
+      if (!url && !file) {
+        session.repeatTracks = tracksToAdd.map(track => ({ ...track }));
+      } else {
+        session.repeatTracks = [];
+      }
       session.queue.push(...tracksToAdd);
       if (wasIdle) {
         const started = await startNext(session);
@@ -433,6 +442,7 @@ function createMusicService(client, db) {
     }
     if (action === 'stop') {
       session.queue.length = 0;
+      session.repeatTracks = [];
       session.current = null;
       session.player.stop(true);
       if (session.ffmpeg && !session.ffmpeg.killed) session.ffmpeg.kill('SIGKILL');
