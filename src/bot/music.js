@@ -247,7 +247,8 @@ function createMusicService(client, db) {
         tracks.map((track, index) => (index + 1) + '. **' + track.title + '**').join('\\n') });
     }
     if (action === 'remove') {
-      const index = interaction.options.getInteger('song', true);
+      const index = interaction.options.getInteger('song');
+      if (!index) return reply({ content: 'Choose the song number to remove. Use **list** to see the playlist.' });
       const tracks = db.prepare('SELECT id, title FROM music_playlist_tracks WHERE guild_id = ? ORDER BY id').all(guildId);
       const track = tracks[index - 1];
       if (!track) return reply({ content: 'That song number is not in the playlist. Use **list** to see song numbers.' });
