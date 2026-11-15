@@ -189,8 +189,8 @@ const commands = [
     .addAttachmentOption(o => o.setName('file').setDescription('Audio file attachment (for Play)').setRequired(false)),
 
   new SlashCommandBuilder().setName('music-config')
-    .setDescription('Create and manage this server music playlist.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDescription('Create and manage this server music playlist (Administrator only).')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addStringOption(o => o.setName('action').setDescription('Choose a playlist action').setRequired(true)
       .addChoices(
         { name: 'Create playlist', value: 'create' },
