@@ -90,12 +90,14 @@ function createMusicService(client) {
           let ffmpegError = '';
           ffmpeg.stderr.setEncoding('utf8');
           ffmpeg.stderr.on('data', chunk => { ffmpegError = (ffmpegError + chunk).slice(-2000); });
-          ffmpeg.on('error', error => {
-            session.lastError = 'FFmpeg failed to start: ' + error.message;
+          const ffmpegStarted = new Promise((resolve, reject) => {
+            ffmpeg.once('spawn', resolve);
+            ffmpeg.once('error', error => reject(new Error('FFmpeg failed to start: ' + error.message)));
           });
           stream.on('error', error => ffmpeg.stdin.destroy(error));
           ffmpeg.stdin.on('error', () => {});
           stream.pipe(ffmpeg.stdin);
+          await ffmpegStarted;
           const resource = createAudioResource(ffmpeg.stdout, {
             inputType: StreamType.Raw,
             metadata: track
