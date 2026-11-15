@@ -3,6 +3,8 @@
 const dns = require('node:dns').promises;
 const net = require('node:net');
 const { Readable } = require('node:stream');
+const { spawn } = require('node:child_process');
+const ffmpegPath = require('ffmpeg-static');
 const {
   AudioPlayerStatus,
   NoSubscriberBehavior,
@@ -77,18 +79,43 @@ function createMusicService(client) {
         const track = session.queue.shift();
         session.current = track;
         try {
+          if (!ffmpegPath) throw new Error('FFmpeg is unavailable on the host.');
           const stream = await getAudioStream(track.url);
-          const resource = createAudioResource(stream, {
-            inputType: StreamType.Arbitrary,
+          const ffmpeg = spawn(ffmpegPath, [
+            '-hide_banner', '-loglevel', 'error',
+            '-i', 'pipe:0',
+            '-vn', '-f', 's16le', '-ar', '48000', '-ac', '2',
+            'pipe:1'
+          ], { stdio: ['pipe', 'pipe', 'pipe'] });
+          let ffmpegError = '';
+          ffmpeg.stderr.setEncoding('utf8');
+          ffmpeg.stderr.on('data', chunk => { ffmpegError = (ffmpegError + chunk).slice(-2000); });
+          const ffmpegStarted = new Promise((resolve, reject) => {
+            ffmpeg.once('spawn', resolve);
+            ffmpeg.once('error', error => reject(new Error('FFmpeg failed to start: ' + error.message)));
+          });
+          stream.on('error', error => ffmpeg.stdin.destroy(error));
+          ffmpeg.stdin.on('error', () => {});
+          stream.pipe(ffmpeg.stdin);
+          await ffmpegStarted;
+          const resource = createAudioResource(ffmpeg.stdout, {
+            inputType: StreamType.Raw,
             metadata: track
           });
+          ffmpeg.on('close', code => {
+            if (code && session.current === track) {
+              session.lastError = ffmpegError.trim() || 'Audio decoder exited with code ' + code + '.';
+            }
+          });
+          session.ffmpeg = ffmpeg;
           session.player.play(resource);
-          return;
+          return true;
         } catch (error) {
           session.current = null;
           session.lastError = error.message;
         }
       }
+      return false;
     } finally {
       session.starting = false;
     }
@@ -99,6 +126,7 @@ function createMusicService(client) {
     if (!session) return false;
     session.queue.length = 0;
     session.player.stop(true);
+    if (session.ffmpeg && !session.ffmpeg.killed) session.ffmpeg.kill('SIGKILL');
     session.connection.destroy();
     sessions.delete(guildId);
     return true;
@@ -181,11 +209,15 @@ function createMusicService(client) {
         connection.subscribe(player);
         player.on(AudioPlayerStatus.Idle, () => {
           session.current = null;
+          if (session.ffmpeg && !session.ffmpeg.killed) session.ffmpeg.kill('SIGKILL');
+          session.ffmpeg = null;
           void startNext(session);
         });
         player.on('error', error => {
           session.lastError = error.message;
           session.current = null;
+          if (session.ffmpeg && !session.ffmpeg.killed) session.ffmpeg.kill('SIGKILL');
+          session.ffmpeg = null;
           void startNext(session);
         });
         connection.on('stateChange', (_oldState, newState) => {
@@ -204,7 +236,16 @@ function createMusicService(client) {
       };
       const wasIdle = !session.current && !session.starting;
       session.queue.push(track);
-      if (wasIdle) await startNext(session);
+      if (wasIdle) {
+        const started = await startNext(session);
+        if (!started) {
+          const reason = session.lastError || 'The audio stream could not be decoded.';
+          return interaction.reply({
+            content: 'Could not start playback for **' + track.title + '**. ' + reason,
+            ephemeral: true
+          });
+        }
+      }
       return interaction.reply({
         content: (wasIdle ? '🎵 Added to playback: ' : '➕ Added to queue: ') + '**' + track.title + '**.'
       });
@@ -234,6 +275,8 @@ function createMusicService(client) {
       session.queue.length = 0;
       session.current = null;
       session.player.stop(true);
+      if (session.ffmpeg && !session.ffmpeg.killed) session.ffmpeg.kill('SIGKILL');
+      session.ffmpeg = null;
       return interaction.reply({ content: '⏹️ Playback stopped and the queue was cleared.' });
     }
     if (action === 'queue') {
