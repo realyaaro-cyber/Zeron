@@ -174,7 +174,7 @@ const commands = [
     .setDescription('Open the ZERON Guild menu: create, join, or war with guilds.'),
 
   new SlashCommandBuilder().setName('music')
-    .setDescription('Play audio in a voice channel or Stage Channel.')
+    .setDescription('Play audio in a regular Voice Channel.')
     .addStringOption(o => o.setName('action').setDescription('Choose a music action').setRequired(true)
       .addChoices(
         { name: 'Play', value: 'play' },
