@@ -188,6 +188,21 @@ const commands = [
     .addStringOption(o => o.setName('url').setDescription('Direct audio file or stream URL (for Play)').setMaxLength(1000).setRequired(false))
     .addAttachmentOption(o => o.setName('file').setDescription('Audio file attachment (for Play)').setRequired(false)),
 
+  new SlashCommandBuilder().setName('music-config')
+    .setDescription('Create and manage this server music playlist.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addStringOption(o => o.setName('action').setDescription('Choose a playlist action').setRequired(true)
+      .addChoices(
+        { name: 'Create playlist', value: 'create' },
+        { name: 'Add audio', value: 'add' },
+        { name: 'Remove a song', value: 'remove' },
+        { name: 'List songs', value: 'list' },
+        { name: 'Delete playlist', value: 'delete' }
+      ))
+    .addStringOption(o => o.setName('url').setDescription('Direct audio URL (for Add)').setMaxLength(1000).setRequired(false))
+    .addAttachmentOption(o => o.setName('file').setDescription('Audio file attachment (for Add)').setRequired(false))
+    .addIntegerOption(o => o.setName('song').setDescription('Song number from the playlist (for Remove)').setMinValue(1).setMaxValue(25).setRequired(false)),
+
   new SlashCommandBuilder().setName('fish')
     .setDescription('Catch fish, finish daily quests, and sell your fishing inventory.'),
   new SlashCommandBuilder().setName('play')

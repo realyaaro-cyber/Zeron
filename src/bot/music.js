@@ -68,7 +68,24 @@ async function getAudioStream(urlText) {
   return Readable.fromWeb(response.body);
 }
 
-function createMusicService(client) {
+function createMusicService(client, db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS music_playlists (
+      guild_id TEXT PRIMARY KEY,
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS music_playlist_tracks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guild_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      url TEXT,
+      audio_data BLOB,
+      added_by TEXT NOT NULL,
+      added_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_music_playlist_tracks
+      ON music_playlist_tracks (guild_id, id);
+  `);
   function getSession(guildId) {
     return sessions.get(guildId) || null;
   }
@@ -118,7 +135,7 @@ function createMusicService(client) {
         const track = session.queue.shift();
         session.current = track;
         try {
-          const stream = await getAudioStream(track.url);
+          const stream = track.audio_data ? Readable.from(track.audio_data) : await getAudioStream(track.url);
           const ffmpeg = spawn(ffmpegPath, [
             '-hide_banner', '-loglevel', 'error',
             '-i', 'pipe:0',
@@ -172,6 +189,102 @@ function createMusicService(client) {
     return true;
   }
 
+  async function handleConfig(interaction) {
+    const reply = payload => interaction.reply({ ...payload, ephemeral: true });
+    if (!interaction.guildId) return reply({ content: 'Playlist configuration only works inside a server.' });
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      return reply({ content: 'You need Manage Server permission to configure the music playlist.' });
+    }
+    const guildId = interaction.guildId;
+    const action = interaction.options.getString('action', true);
+    const exists = db.prepare('SELECT guild_id FROM music_playlists WHERE guild_id = ?').get(guildId);
+
+    if (action === 'create') {
+      if (exists) return reply({ content: 'This server already has a music playlist. Use **add** to add tracks.' });
+      db.prepare('INSERT INTO music_playlists (guild_id, created_at) VALUES (?, ?)').run(guildId, Date.now());
+      return reply({ content: '🎶 The server music playlist has been created.' });
+    }
+    if (action === 'delete') {
+      if (!exists) return reply({ content: 'This server does not have a playlist yet. Use **create** first.' });
+      db.prepare('DELETE FROM music_playlist_tracks WHERE guild_id = ?').run(guildId);
+      db.prepare('DELETE FROM music_playlists WHERE guild_id = ?').run(guildId);
+      return reply({ content: '🗑️ The server music playlist has been deleted.' });
+    }
+    if (!exists) return reply({ content: 'No playlist exists yet. Run **/music-config action:create** first.' });
+
+    if (action === 'add') {
+      const url = interaction.options.getString('url');
+      const file = interaction.options.getAttachment('file');
+      if (Boolean(url) === Boolean(file)) {
+        return reply({ content: 'Provide exactly one source: a direct audio URL or an audio file attachment.' });
+      }
+      let title;
+      let sourceUrl;
+      if (file) {
+        if (!file.contentType?.toLowerCase().startsWith('audio/') || file.size > MAX_AUDIO_BYTES) {
+          return reply({ content: 'Attach an audio file no larger than 25 MB.' });
+        }
+        title = file.name;
+        sourceUrl = null;
+        let response;
+        try {
+          response = await fetch(file.url, { redirect: 'error', signal: AbortSignal.timeout(15000) });
+        } catch {
+          return reply({ content: 'ZERON could not download that Discord attachment. Please upload it again.' });
+        }
+        if (!response.ok) return reply({ content: 'ZERON could not download that Discord attachment. Please upload it again.' });
+        const audioData = Buffer.from(await response.arrayBuffer());
+        if (!audioData.length || audioData.length > MAX_AUDIO_BYTES) {
+          return reply({ content: 'The uploaded audio file must be no larger than 25 MB.' });
+        }
+        const count = db.prepare('SELECT COUNT(*) AS count FROM music_playlist_tracks WHERE guild_id = ?').get(guildId).count;
+        if (count >= MAX_QUEUE_SIZE) return reply({ content: 'The playlist is full (25 tracks maximum).' });
+        db.prepare('INSERT INTO music_playlist_tracks (guild_id, title, url, audio_data, added_by, added_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(guildId, title, sourceUrl, audioData, interaction.user.id, Date.now());
+        return reply({ content: '➕ Saved **' + title + '** to the server playlist.' });
+      } else {
+        let parsed;
+        try { parsed = new URL(url); } catch { return reply({ content: 'Provide a valid direct audio URL.' }); }
+        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+          return reply({ content: 'Only direct HTTP or HTTPS audio URLs are supported.' });
+        }
+        title = parsed.hostname;
+        sourceUrl = url;
+      }
+      const count = db.prepare('SELECT COUNT(*) AS count FROM music_playlist_tracks WHERE guild_id = ?').get(guildId).count;
+      if (count >= MAX_QUEUE_SIZE) return reply({ content: 'The playlist is full (25 tracks maximum).' });
+      db.prepare('INSERT INTO music_playlist_tracks (guild_id, title, url, audio_data, added_by, added_at) VALUES (?, ?, ?, NULL, ?, ?)')
+        .run(guildId, title, sourceUrl, interaction.user.id, Date.now());
+      return reply({ content: '➕ Added **' + title + '** to the server playlist.' });
+    }
+    if (action === 'list') {
+      const tracks = db.prepare('SELECT id, title FROM music_playlist_tracks WHERE guild_id = ? ORDER BY id').all(guildId);
+      if (!tracks.length) return reply({ content: 'The playlist is empty. Use **add** to add audio.' });
+      return reply({ content: '🎶 **Server playlist (' + tracks.length + '/25)**\\n' +
+        tracks.map((track, index) => (index + 1) + '. **' + track.title + '**').join('\\n') });
+    }
+    if (action === 'remove') {
+      const index = interaction.options.getInteger('song');
+      if (!index) return reply({ content: 'Choose the song number to remove. Use **list** to see the playlist.' });
+      const tracks = db.prepare('SELECT id, title FROM music_playlist_tracks WHERE guild_id = ? ORDER BY id').all(guildId);
+      const track = tracks[index - 1];
+      if (!track) return reply({ content: 'That song number is not in the playlist. Use **list** to see song numbers.' });
+      db.prepare('DELETE FROM music_playlist_tracks WHERE id = ? AND guild_id = ?').run(track.id, guildId);
+      return reply({ content: '➖ Removed **' + track.title + '** from the playlist.' });
+    }
+  }
+
+  client.on('interactionCreate', interaction => {
+    if (interaction.isChatInputCommand?.() && interaction.commandName === 'music-config') {
+      void handleConfig(interaction).catch(error => {
+        console.error('Music playlist configuration failed:', error);
+        const payload = { content: 'ZERON could not update the playlist. Please try again.', ephemeral: true };
+        if (interaction.deferred || interaction.replied) void interaction.followUp(payload).catch(() => {});
+        else void interaction.reply(payload).catch(() => {});
+      });
+    }
+  });
+
   async function handle(interaction) {
     const action = interaction.options.getString('action', true);
     if (action === 'play') await interaction.deferReply();
@@ -185,26 +298,29 @@ function createMusicService(client) {
     if (action === 'play') {
       const url = interaction.options.getString('url');
       const file = interaction.options.getAttachment('file');
-      let urlHost = 'audio stream';
-      if (url) {
-        try {
-          const parsedUrl = new URL(url);
-          if (!['https:', 'http:'].includes(parsedUrl.protocol) || parsedUrl.username || parsedUrl.password) {
-            throw new Error('invalid protocol');
+      if (url && file) return reply({ content: 'Choose either a direct audio URL or an audio file, not both.', ephemeral: true });
+      let tracksToAdd = [];
+      if (url || file) {
+        let urlHost = 'audio stream';
+        if (url) {
+          try {
+            const parsedUrl = new URL(url);
+            if (!['https:', 'http:'].includes(parsedUrl.protocol) || parsedUrl.username || parsedUrl.password) throw new Error('invalid protocol');
+            urlHost = parsedUrl.hostname;
+          } catch {
+            return reply({ content: 'Provide a valid direct HTTP or HTTPS audio URL.', ephemeral: true });
           }
-          urlHost = parsedUrl.hostname;
-        } catch {
-          return reply({ content: 'Provide a valid direct HTTP or HTTPS audio URL.', ephemeral: true });
         }
-      }
-      if (Boolean(url) === Boolean(file)) {
-        return reply({
-          content: 'Choose exactly one source: provide a direct audio URL or attach an audio file.',
-          ephemeral: true
-        });
-      }
-      if (file && (!file.contentType || !file.contentType.toLowerCase().startsWith('audio/') || file.size > MAX_AUDIO_BYTES)) {
-        return reply({ content: 'Attach an audio file no larger than 25 MB.', ephemeral: true });
+        if (file && (!file.contentType?.toLowerCase().startsWith('audio/') || file.size > MAX_AUDIO_BYTES)) {
+          return reply({ content: 'Attach an audio file no larger than 25 MB.', ephemeral: true });
+        }
+        tracksToAdd = [{ title: file ? file.name : urlHost, url: file ? file.url : url, requestedBy: interaction.user.id }];
+      } else {
+        const playlist = db.prepare('SELECT guild_id FROM music_playlists WHERE guild_id = ?').get(guildId);
+        if (!playlist) return reply({ content: 'No server playlist exists. Create one with **/music-config action:create**.' , ephemeral: true });
+        tracksToAdd = db.prepare('SELECT title, url, audio_data FROM music_playlist_tracks WHERE guild_id = ? ORDER BY id').all(guildId)
+          .map(track => ({ ...track, requestedBy: interaction.user.id }));
+        if (!tracksToAdd.length) return reply({ content: 'The server playlist is empty. Add tracks with **/music-config action:add**.', ephemeral: true });
       }
       if (!voiceChannel || voiceChannel.type !== ChannelType.GuildVoice) {
         return reply({ content: 'Join a regular Voice Channel first. Stage Channels are not supported.', ephemeral: true });
@@ -273,28 +389,25 @@ function createMusicService(client) {
         updateEmptyChannelTimer(session);
       }
 
-      if (session.queue.length >= MAX_QUEUE_SIZE) {
-        return reply({ content: 'The music queue is full (25 tracks).', ephemeral: true });
+      if (session.queue.length + tracksToAdd.length > MAX_QUEUE_SIZE) {
+        return reply({ content: 'The music queue can hold up to 25 queued tracks. There is not enough room for this selection.', ephemeral: true });
       }
-      const track = {
-        title: file ? file.name : urlHost,
-        url: file ? file.url : url,
-        requestedBy: interaction.user.id
-      };
       const wasIdle = !session.current && !session.starting;
-      session.queue.push(track);
+      session.queue.push(...tracksToAdd);
       if (wasIdle) {
         const started = await startNext(session);
         if (!started) {
           const reason = session.lastError || 'The audio stream could not be decoded.';
           return reply({
-            content: 'Could not start playback for **' + track.title + '**. ' + reason,
+            content: 'Could not start playlist playback. ' + reason,
             ephemeral: true
           });
         }
       }
       return reply({
-        content: (wasIdle ? '🎵 Added to playback: ' : '➕ Added to queue: ') + '**' + track.title + '**.'
+        content: tracksToAdd.length > 1
+          ? '🎶 Added ' + tracksToAdd.length + ' playlist tracks to playback.'
+          : (wasIdle ? '🎵 Added to playback: ' : '➕ Added to queue: ') + '**' + tracksToAdd[0].title + '**.'
       });
     }
 
