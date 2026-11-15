@@ -136,8 +136,8 @@ function createMusicService(client) {
       if (file && (!file.contentType || !file.contentType.toLowerCase().startsWith('audio/') || file.size > MAX_AUDIO_BYTES)) {
         return interaction.reply({ content: 'Attach an audio file no larger than 25 MB.', ephemeral: true });
       }
-      if (!voiceChannel || ![ChannelType.GuildVoice, ChannelType.GuildStageVoice].includes(voiceChannel.type)) {
-        return interaction.reply({ content: 'Join a Voice Channel or Stage Channel first.', ephemeral: true });
+      if (!voiceChannel || voiceChannel.type !== ChannelType.GuildVoice) {
+        return interaction.reply({ content: 'Join a regular Voice Channel first. Stage Channels are not supported.', ephemeral: true });
       }
       if (session && session.channelId !== voiceChannel.id) {
         return interaction.reply({ content: 'ZERON is already playing in another voice channel in this server. Use /music action:leave there first.', ephemeral: true });
@@ -146,17 +146,10 @@ function createMusicService(client) {
       if (!session) {
         const botMember = guild.members.me;
         const permissions = voiceChannel.permissionsFor(botMember);
-        const required = [PermissionFlagsBits.Connect];
-        if (voiceChannel.type === ChannelType.GuildVoice) required.push(PermissionFlagsBits.Speak);
+        const required = [PermissionFlagsBits.Connect, PermissionFlagsBits.Speak];
         if (!permissions || !permissions.has(required)) {
           return interaction.reply({ content: 'ZERON needs Connect and Speak permissions in that voice channel.', ephemeral: true });
         }
-        if (voiceChannel.type === ChannelType.GuildStageVoice &&
-            !permissions.has(PermissionFlagsBits.RequestToSpeak) &&
-            !permissions.has(PermissionFlagsBits.Speak)) {
-          return interaction.reply({ content: 'ZERON needs Request to Speak or Speak permission in that Stage Channel.', ephemeral: true });
-        }
-
         const connection = joinVoiceChannel({
           channelId: voiceChannel.id,
           guildId,
@@ -200,15 +193,7 @@ function createMusicService(client) {
         });
         sessions.set(guildId, session);
 
-        if (voiceChannel.type === ChannelType.GuildStageVoice) {
-          const me = guild.members.me;
-          const voiceState = me && me.voice;
-          if (voiceState) {
-            await voiceState.setSuppressed(false).catch(async () => {
-              await voiceState.setRequestToSpeak(true).catch(() => {});
-            });
-          }
-        }
+
       }
 
       if (session.queue.length >= MAX_QUEUE_SIZE) {
