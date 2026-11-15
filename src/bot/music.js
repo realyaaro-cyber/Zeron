@@ -260,8 +260,8 @@ function createMusicService(client, db) {
     if (action === 'list') {
       const tracks = db.prepare('SELECT id, title FROM music_playlist_tracks WHERE guild_id = ? ORDER BY id').all(guildId);
       if (!tracks.length) return reply({ content: 'The playlist is empty. Use **add** to add audio.' });
-      return reply({ content: '🎶 **Server playlist (' + tracks.length + '/25)**\\n' +
-        tracks.map((track, index) => (index + 1) + '. **' + track.title + '**').join('\\n') });
+      return reply({ content: '🎶 **Server playlist (' + tracks.length + '/25)**\n' +
+        tracks.map((track, index) => (index + 1) + '. **' + track.title + '**').join('\n') });
     }
     if (action === 'remove') {
       const index = interaction.options.getInteger('song');
