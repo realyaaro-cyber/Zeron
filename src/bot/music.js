@@ -78,7 +78,8 @@ function createMusicService(client, db) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       guild_id TEXT NOT NULL,
       title TEXT NOT NULL,
-      url TEXT NOT NULL,
+      url TEXT,
+      audio_data BLOB,
       added_by TEXT NOT NULL,
       added_at INTEGER NOT NULL
     );
@@ -134,7 +135,7 @@ function createMusicService(client, db) {
         const track = session.queue.shift();
         session.current = track;
         try {
-          const stream = await getAudioStream(track.url);
+          const stream = track.audio_data ? Readable.from(track.audio_data) : await getAudioStream(track.url);
           const ffmpeg = spawn(ffmpegPath, [
             '-hide_banner', '-loglevel', 'error',
             '-i', 'pipe:0',
@@ -224,7 +225,23 @@ function createMusicService(client, db) {
           return reply({ content: 'Attach an audio file no larger than 25 MB.' });
         }
         title = file.name;
-        sourceUrl = file.url;
+        sourceUrl = null;
+        let response;
+        try {
+          response = await fetch(file.url, { redirect: 'error', signal: AbortSignal.timeout(15000) });
+        } catch {
+          return reply({ content: 'ZERON could not download that Discord attachment. Please upload it again.' });
+        }
+        if (!response.ok) return reply({ content: 'ZERON could not download that Discord attachment. Please upload it again.' });
+        const audioData = Buffer.from(await response.arrayBuffer());
+        if (!audioData.length || audioData.length > MAX_AUDIO_BYTES) {
+          return reply({ content: 'The uploaded audio file must be no larger than 25 MB.' });
+        }
+        const count = db.prepare('SELECT COUNT(*) AS count FROM music_playlist_tracks WHERE guild_id = ?').get(guildId).count;
+        if (count >= MAX_QUEUE_SIZE) return reply({ content: 'The playlist is full (25 tracks maximum).' });
+        db.prepare('INSERT INTO music_playlist_tracks (guild_id, title, url, audio_data, added_by, added_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(guildId, title, sourceUrl, audioData, interaction.user.id, Date.now());
+        return reply({ content: '➕ Saved **' + title + '** to the server playlist.' });
       } else {
         let parsed;
         try { parsed = new URL(url); } catch { return reply({ content: 'Provide a valid direct audio URL.' }); }
@@ -236,7 +253,7 @@ function createMusicService(client, db) {
       }
       const count = db.prepare('SELECT COUNT(*) AS count FROM music_playlist_tracks WHERE guild_id = ?').get(guildId).count;
       if (count >= MAX_QUEUE_SIZE) return reply({ content: 'The playlist is full (25 tracks maximum).' });
-      db.prepare('INSERT INTO music_playlist_tracks (guild_id, title, url, added_by, added_at) VALUES (?, ?, ?, ?, ?)')
+      db.prepare('INSERT INTO music_playlist_tracks (guild_id, title, url, audio_data, added_by, added_at) VALUES (?, ?, ?, NULL, ?, ?)')
         .run(guildId, title, sourceUrl, interaction.user.id, Date.now());
       return reply({ content: '➕ Added **' + title + '** to the server playlist.' });
     }
@@ -301,7 +318,7 @@ function createMusicService(client, db) {
       } else {
         const playlist = db.prepare('SELECT guild_id FROM music_playlists WHERE guild_id = ?').get(guildId);
         if (!playlist) return reply({ content: 'No server playlist exists. Create one with **/music-config action:create**.' , ephemeral: true });
-        tracksToAdd = db.prepare('SELECT title, url FROM music_playlist_tracks WHERE guild_id = ? ORDER BY id').all(guildId)
+        tracksToAdd = db.prepare('SELECT title, url, audio_data FROM music_playlist_tracks WHERE guild_id = ? ORDER BY id').all(guildId)
           .map(track => ({ ...track, requestedBy: interaction.user.id }));
         if (!tracksToAdd.length) return reply({ content: 'The server playlist is empty. Add tracks with **/music-config action:add**.', ephemeral: true });
       }
