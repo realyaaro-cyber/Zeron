@@ -173,6 +173,21 @@ const commands = [
   new SlashCommandBuilder().setName('guild')
     .setDescription('Open the ZERON Guild menu: create, join, or war with guilds.'),
 
+  new SlashCommandBuilder().setName('music')
+    .setDescription('Play audio in a voice channel or Stage Channel.')
+    .addStringOption(o => o.setName('action').setDescription('Choose a music action').setRequired(true)
+      .addChoices(
+        { name: 'Play', value: 'play' },
+        { name: 'Pause', value: 'pause' },
+        { name: 'Resume', value: 'resume' },
+        { name: 'Skip', value: 'skip' },
+        { name: 'Stop', value: 'stop' },
+        { name: 'Queue', value: 'queue' },
+        { name: 'Leave', value: 'leave' }
+      ))
+    .addStringOption(o => o.setName('url').setDescription('Direct audio file or stream URL (for Play)').setMaxLength(1000).setRequired(false))
+    .addAttachmentOption(o => o.setName('file').setDescription('Audio file attachment (for Play)').setRequired(false)),
+
   new SlashCommandBuilder().setName('fish')
     .setDescription('Catch fish, finish daily quests, and sell your fishing inventory.'),
   new SlashCommandBuilder().setName('play')
