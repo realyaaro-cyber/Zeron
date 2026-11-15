@@ -184,9 +184,7 @@ const commands = [
         { name: 'Stop', value: 'stop' },
         { name: 'Queue', value: 'queue' },
         { name: 'Leave', value: 'leave' }
-      ))
-    .addStringOption(o => o.setName('url').setDescription('Direct audio file or stream URL (for Play)').setMaxLength(1000).setRequired(false))
-    .addAttachmentOption(o => o.setName('file').setDescription('Audio file attachment (for Play)').setRequired(false)),
+      )),
 
   new SlashCommandBuilder().setName('music-config')
     .setDescription('Create and manage this server music playlist (Administrator only).')
