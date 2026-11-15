@@ -192,8 +192,6 @@ function createMusicService(client) {
           if (newState.status === VoiceConnectionStatus.Destroyed) sessions.delete(guildId);
         });
         sessions.set(guildId, session);
-
-
       }
 
       if (session.queue.length >= MAX_QUEUE_SIZE) {
