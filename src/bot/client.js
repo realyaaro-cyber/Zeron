@@ -42,7 +42,7 @@ const HELP_FOLDERS = [
     id: 'staff',
     label: '🛡️ Administrator & Moderator commands',
     description: 'For admins and moderators. These need Manage Server, Kick, Ban, Timeout or Manage Messages.',
-    names: ['welcome', 'track-invite', 'enable-level-up', 'role-reward', 'starboard', 'poll', 'kick', 'ban', 'unban', 'timeout', 'untimeout', 'purge', 'trivia', 'vaultalert', 'vaultpost', 'aichat']
+    names: ['welcome', 'track-invite', 'enable-level-up', 'role-reward', 'starboard', 'poll', 'kick', 'ban', 'unban', 'timeout', 'untimeout', 'purge', 'trivia', 'vaultalert', 'vaultpost', 'aichat', 'music-config']
   },
   {
     id: 'member',
