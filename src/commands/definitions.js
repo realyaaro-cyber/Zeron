@@ -184,8 +184,7 @@ const commands = [
         { name: 'Stop', value: 'stop' },
         { name: 'Queue', value: 'queue' },
         { name: 'Leave', value: 'leave' }
-      ))
-    ,
+      )),
 
   new SlashCommandBuilder().setName('music-config')
     .setDescription('Create and manage this server music playlist (Administrator only).')
