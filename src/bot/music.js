@@ -1,0 +1,256 @@
+'use strict';
+
+const dns = require('node:dns').promises;
+const net = require('node:net');
+const { Readable } = require('node:stream');
+const {
+  AudioPlayerStatus,
+  NoSubscriberBehavior,
+  StreamType,
+  VoiceConnectionStatus,
+  createAudioPlayer,
+  createAudioResource,
+  entersState,
+  joinVoiceChannel
+} = require('@discordjs/voice');
+const { ChannelType, PermissionFlagsBits } = require('discord.js');
+
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+const MAX_QUEUE_SIZE = 25;
+const sessions = new Map();
+
+function isPrivateAddress(address) {
+  if (net.isIPv4(address)) {
+    const p = address.split('.').map(Number);
+    return p[0] === 0 || p[0] === 10 || p[0] === 127 ||
+      (p[0] === 169 && p[1] === 254) ||
+      (p[0] === 172 && p[1] >= 16 && p[1] <= 31) ||
+      (p[0] === 192 && p[1] === 168) || p[0] >= 224;
+  }
+  const value = address.toLowerCase();
+  return value === '::1' || value === '::' || value.startsWith('fc') ||
+    value.startsWith('fd') || value.startsWith('fe80:') ||
+    value.startsWith('::ffff:');
+}
+
+async function getAudioStream(urlText) {
+  let url;
+  try {
+    url = new URL(urlText);
+  } catch {
+    throw new Error('Provide a valid direct audio URL.');
+  }
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) {
+    throw new Error('Only direct HTTP or HTTPS audio URLs are supported.');
+  }
+  const addresses = await dns.lookup(url.hostname, { all: true }).catch(() => []);
+  if (!addresses.length || addresses.some(item => isPrivateAddress(item.address))) {
+    throw new Error('That audio URL host could not be verified as public.');
+  }
+  const response = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(15000) });
+  if (!response.ok || !response.body) {
+    throw new Error('ZERON could not open that audio URL.');
+  }
+  const type = (response.headers.get('content-type') || '').toLowerCase();
+  if (!type.startsWith('audio/') && !type.includes('ogg') && !type.includes('octet-stream')) {
+    await response.body.cancel().catch(() => {});
+    throw new Error('The URL must point directly to an audio file or audio stream.');
+  }
+  const length = Number(response.headers.get('content-length') || 0);
+  if (length > MAX_AUDIO_BYTES) {
+    await response.body.cancel().catch(() => {});
+    throw new Error('Audio sources with a declared size above 25 MB are not supported.');
+  }
+  return Readable.fromWeb(response.body);
+}
+
+function createMusicService(client) {
+  function getSession(guildId) {
+    return sessions.get(guildId) || null;
+  }
+
+  async function startNext(session) {
+    if (session.starting || session.current) return;
+    const track = session.queue.shift();
+    if (!track) return;
+    session.starting = true;
+    session.current = track;
+    try {
+      const stream = await getAudioStream(track.url);
+      const resource = createAudioResource(stream, {
+        inputType: StreamType.Arbitrary,
+        metadata: track
+      });
+      session.player.play(resource);
+    } catch (error) {
+      session.current = null;
+      session.lastError = error.message;
+      await startNext(session);
+    } finally {
+      session.starting = false;
+    }
+  }
+
+  function destroySession(guildId) {
+    const session = sessions.get(guildId);
+    if (!session) return false;
+    session.queue.length = 0;
+    session.player.stop(true);
+    session.connection.destroy();
+    sessions.delete(guildId);
+    return true;
+  }
+
+  async function handle(interaction) {
+    const action = interaction.options.getString('action', true);
+    const guild = interaction.guild;
+    const guildId = interaction.guildId;
+    const member = await guild.members.fetch(interaction.user.id).catch(() => null);
+    const voiceChannel = member && member.voice ? member.voice.channel : null;
+    let session = getSession(guildId);
+
+    if (action === 'play') {
+      const url = interaction.options.getString('url');
+      const file = interaction.options.getAttachment('file');
+      if (Boolean(url) === Boolean(file)) {
+        return interaction.reply({
+          content: 'Choose exactly one source: provide a direct audio URL or attach an audio file.',
+          ephemeral: true
+        });
+      }
+      if (file && (!file.contentType || !file.contentType.toLowerCase().startsWith('audio/') || file.size > MAX_AUDIO_BYTES)) {
+        return interaction.reply({ content: 'Attach an audio file no larger than 25 MB.', ephemeral: true });
+      }
+      if (!voiceChannel || ![ChannelType.GuildVoice, ChannelType.GuildStageVoice].includes(voiceChannel.type)) {
+        return interaction.reply({ content: 'Join a Voice Channel or Stage Channel first.', ephemeral: true });
+      }
+      if (session && session.channelId !== voiceChannel.id) {
+        return interaction.reply({ content: 'ZERON is already playing in another voice channel in this server. Use /music action:leave there first.', ephemeral: true });
+      }
+
+      if (!session) {
+        const botMember = guild.members.me;
+        const permissions = voiceChannel.permissionsFor(botMember);
+        const required = [PermissionFlagsBits.Connect];
+        if (voiceChannel.type === ChannelType.GuildVoice) required.push(PermissionFlagsBits.Speak);
+        if (!permissions || !permissions.has(required)) {
+          return interaction.reply({ content: 'ZERON needs Connect and Speak permissions in that voice channel.', ephemeral: true });
+        }
+        if (voiceChannel.type === ChannelType.GuildStageVoice &&
+            !permissions.has(PermissionFlagsBits.RequestToSpeak) &&
+            !permissions.has(PermissionFlagsBits.Speak)) {
+          return interaction.reply({ content: 'ZERON needs Request to Speak or Speak permission in that Stage Channel.', ephemeral: true });
+        }
+
+        const connection = joinVoiceChannel({
+          channelId: voiceChannel.id,
+          guildId,
+          adapterCreator: guild.voiceAdapterCreator,
+          selfDeaf: false,
+          selfMute: false
+        });
+        try {
+          await entersState(connection, VoiceConnectionStatus.Ready, 20000);
+        } catch {
+          connection.destroy();
+          return interaction.reply({ content: 'ZERON could not connect. Check its voice permissions and try again.', ephemeral: true });
+        }
+
+        const player = createAudioPlayer({
+          behaviors: { noSubscriber: NoSubscriberBehavior.Stop }
+        });
+        session = {
+          guildId,
+          channelId: voiceChannel.id,
+          channelType: voiceChannel.type,
+          connection,
+          player,
+          queue: [],
+          current: null,
+          starting: false,
+          lastError: null
+        };
+        connection.subscribe(player);
+        player.on(AudioPlayerStatus.Idle, () => {
+          session.current = null;
+          void startNext(session);
+        });
+        player.on('error', error => {
+          session.lastError = error.message;
+          session.current = null;
+          void startNext(session);
+        });
+        connection.on('stateChange', (_oldState, newState) => {
+          if (newState.status === VoiceConnectionStatus.Destroyed) sessions.delete(guildId);
+        });
+        sessions.set(guildId, session);
+
+        if (voiceChannel.type === ChannelType.GuildStageVoice) {
+          const me = guild.members.me;
+          const voiceState = me && me.voice;
+          if (voiceState && voiceState.suppress) {
+            await voiceState.setSuppressed(false).catch(async () => {
+              await voiceState.setRequestToSpeak(true).catch(() => {});
+            });
+          }
+        }
+      }
+
+      if (session.queue.length >= MAX_QUEUE_SIZE) {
+        return interaction.reply({ content: 'The music queue is full (25 tracks).', ephemeral: true });
+      }
+      const track = {
+        title: file ? file.name : new URL(url).hostname,
+        url: file ? file.url : url,
+        requestedBy: interaction.user.id
+      };
+      const wasIdle = !session.current && !session.starting;
+      session.queue.push(track);
+      if (wasIdle) await startNext(session);
+      return interaction.reply({
+        content: (wasIdle ? '🎵 Added to playback: ' : '➕ Added to queue: ') + '**' + track.title + '**.'
+      });
+    }
+
+    if (!session) {
+      return interaction.reply({ content: 'ZERON is not connected to a voice channel right now.', ephemeral: true });
+    }
+    if (voiceChannel && voiceChannel.id !== session.channelId) {
+      return interaction.reply({ content: 'Join ZERON’s voice channel to control its music.', ephemeral: true });
+    }
+
+    if (action === 'pause') {
+      if (!session.player.pause()) return interaction.reply({ content: 'Music is not currently playing.', ephemeral: true });
+      return interaction.reply({ content: '⏸️ Music paused.' });
+    }
+    if (action === 'resume') {
+      if (!session.player.unpause()) return interaction.reply({ content: 'Music is not paused.', ephemeral: true });
+      return interaction.reply({ content: '▶️ Music resumed.' });
+    }
+    if (action === 'skip') {
+      if (!session.current) return interaction.reply({ content: 'There is no track to skip.', ephemeral: true });
+      session.player.stop();
+      return interaction.reply({ content: '⏭️ Skipped the current track.' });
+    }
+    if (action === 'stop') {
+      session.queue.length = 0;
+      session.current = null;
+      session.player.stop(true);
+      return interaction.reply({ content: '⏹️ Playback stopped and the queue was cleared.' });
+    }
+    if (action === 'queue') {
+      const lines = [];
+      if (session.current) lines.push('Now playing: **' + session.current.title + '**');
+      session.queue.slice(0, 15).forEach((track, index) => lines.push((index + 1) + '. ' + track.title));
+      return interaction.reply({ content: lines.length ? '🎶 **Music queue**\n' + lines.join('\n') : 'The music queue is empty.' });
+    }
+    if (action === 'leave') {
+      destroySession(guildId);
+      return interaction.reply({ content: '👋 ZERON left the voice channel and cleared the queue.' });
+    }
+  }
+
+  return { handle, getSession, destroySession };
+}
+
+module.exports = { createMusicService };
