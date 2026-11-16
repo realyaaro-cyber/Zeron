@@ -38,7 +38,27 @@ server.on('error', (err) => {
 const https = require('node:https');
 const discordApiCheck = https.get('https://discord.com/api/v10/gateway', (response) => {
   console.log(`[NETWORK CHECK] Discord API HTTP status: ${response.statusCode}`);
-  response.resume();
+  console.log('[NETWORK CHECK] Retry-After:', response.headers['retry-after'] || 'not provided');
+  console.log('[NETWORK CHECK] Rate-limit headers:', JSON.stringify({
+    limit: response.headers['x-ratelimit-limit'] || null,
+    remaining: response.headers['x-ratelimit-remaining'] || null,
+    resetAfter: response.headers['x-ratelimit-reset-after'] || null,
+    bucket: response.headers['x-ratelimit-bucket'] || null,
+    global: response.headers['x-ratelimit-global'] || null
+  }));
+
+  let responseBody = '';
+  response.setEncoding('utf8');
+  response.on('data', (chunk) => {
+    if (responseBody.length < 2048) {
+      responseBody += chunk.slice(0, 2048 - responseBody.length);
+    }
+  });
+  response.on('end', () => {
+    if (response.statusCode === 429) {
+      console.error('[NETWORK CHECK] Discord API rate-limit response body:', responseBody || '(empty)');
+    }
+  });
 });
 discordApiCheck.setTimeout(10000, () => {
   console.error('[NETWORK CHECK] Discord API request timed out after 10 seconds.');
