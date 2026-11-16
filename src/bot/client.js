@@ -2095,19 +2095,15 @@ function createClient(db) {
     console.error('Uncaught exception, restarting:', error && error.stack ? error.stack : error);
     setTimeout(() => process.exit(1), 500);
   });
-  client.on('error', error => console.error('Discord client error:', error.message));
-  client.on('shardDisconnect', (event, shardId) => console.warn(`Shard ${shardId} disconnected (code ${event.code}). Reconnecting.`));
-  client.on('shardReconnecting', shardId => console.warn(`Shard ${shardId} reconnecting.`));
-  client.on('shardResume', shardId => console.log(`Shard ${shardId} resumed.`));
-
-  client.nxLastHeartbeat = Date.now();
-  setInterval(() => {
-    if (client.ws.ping >= 0) client.nxLastHeartbeat = Date.now();
-    const silentFor = Date.now() - client.nxLastHeartbeat;
-    if (silentFor > 60000) {
-      console.warn(`Gateway: no heartbeat for ${Math.round(silentFor / 1000)}s (status ${client.ws.status}).`);
-    }
-  }, 30000).unref();
+  client.on('error', error => console.error('Discord client error:', error && error.stack ? error.stack : error));
+  client.on('shardError', (error, shardId) => {
+    console.error(`Discord Gateway shard ${shardId} error:`, error && error.stack ? error.stack : error);
+  });
+  client.on('shardDisconnect', (event, shardId) => {
+    console.warn(`Discord Gateway shard ${shardId} disconnected (code ${event.code}, reason: ${event.reason || 'not provided'}). Reconnecting.`);
+  });
+  client.on('shardReconnecting', shardId => console.warn(`Discord Gateway shard ${shardId} reconnecting.`));
+  client.on('shardResume', shardId => console.log(`Discord Gateway shard ${shardId} resumed.`));
 
   // Developer commands: apply the per-server visibility after startup, and again whenever ZERON joins a server.
   client.once(Events.ClientReady, () => {
