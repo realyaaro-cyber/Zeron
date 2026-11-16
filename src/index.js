@@ -34,6 +34,20 @@ server.on('error', (err) => {
   process.exitCode = 1;
 });
 
+// Temporary network diagnostic: check public Discord API reachability without using the bot token.
+const https = require('node:https');
+const discordApiCheck = https.get('https://discord.com/api/v10/gateway', (response) => {
+  console.log(`[NETWORK CHECK] Discord API HTTP status: ${response.statusCode}`);
+  response.resume();
+});
+discordApiCheck.setTimeout(10000, () => {
+  console.error('[NETWORK CHECK] Discord API request timed out after 10 seconds.');
+  discordApiCheck.destroy();
+});
+discordApiCheck.on('error', (error) => {
+  console.error('[NETWORK CHECK] Discord API connection error:', error.code || error.message);
+});
+
 console.log('Connecting ZERON to the Discord Gateway...');
 client.login(process.env.DISCORD_TOKEN).catch((err) => {
   console.error('ZERON Discord login failed; dashboard will remain available:', err && err.stack ? err.stack : err);
