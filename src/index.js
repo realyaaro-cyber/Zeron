@@ -25,15 +25,30 @@ const client = createClient(db);
 const app = createDashboard({ db, client });
 const port = Number(process.env.PORT || 3000);
 
-async function start() {
-  await client.login(process.env.DISCORD_TOKEN);
-  app.listen(port, '0.0.0.0', () => {
-    console.log(`ZERON dashboard listening on port ${port}`);
+// Keep the dashboard available even if Discord Gateway login is delayed or fails.
+const server = app.listen(port, '0.0.0.0', () => {
+  console.log(`ZERON dashboard listening on port ${port}`);
+});
+server.on('error', (err) => {
+  console.error('ZERON dashboard failed to listen:', err);
+  process.exitCode = 1;
+});
+
+console.log('Connecting ZERON to the Discord Gateway...');
+client.login(process.env.DISCORD_TOKEN).catch((err) => {
+  console.error('ZERON Discord login failed; dashboard will remain available:', err && err.stack ? err.stack : err);
+});
+
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`Received ${signal}; shutting down ZERON.`);
+  client.destroy();
+  server.close(() => {
+    db.close();
+    process.exit(0);
   });
 }
-start().catch((err) => {
-  console.error('ZERON failed to start:', err);
-  process.exit(1);
-});
-process.on('SIGINT', () => { client.destroy(); db.close(); process.exit(0); });
-process.on('SIGTERM', () => { client.destroy(); db.close(); process.exit(0); });
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
