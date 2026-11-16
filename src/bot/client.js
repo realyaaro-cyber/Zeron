@@ -2095,6 +2095,21 @@ function createClient(db) {
     console.error('Uncaught exception, restarting:', error && error.stack ? error.stack : error);
     setTimeout(() => process.exit(1), 500);
   });
+  // Gateway diagnostics: expose connection-stage messages when login is pending before READY.
+  client.on('debug', message => {
+    if (/gateway|websocket|heartbeat|identify|resume|connecting|reconnect|hello|ready/i.test(message)) {
+      console.log('[Discord.js debug]', message);
+    }
+  });
+  client.on('warn', message => console.warn('Discord.js warning:', message));
+  client.on('shardReady', (shardId, unavailableGuilds) => {
+    console.log(`Discord Gateway shard ${shardId} is READY${unavailableGuilds?.size ? ` (unavailable guilds: ${unavailableGuilds.size})` : ''}.`);
+  });
+  const gatewayDiagnostic = setInterval(() => {
+    console.log(`Gateway diagnostic: ready=${client.isReady()} wsStatus=${client.ws?.status ?? 'unknown'} ping=${client.ws?.ping ?? 'unknown'}`);
+  }, 20000);
+  gatewayDiagnostic.unref();
+
   client.on('error', error => console.error('Discord client error:', error && error.stack ? error.stack : error));
   client.on('shardError', (error, shardId) => {
     console.error(`Discord Gateway shard ${shardId} error:`, error && error.stack ? error.stack : error);
