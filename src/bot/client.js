@@ -1760,12 +1760,12 @@ function createClient(db) {
 
   function aiMinimalSystemPrompt(userText = '') {
     const text = String(userText || '').toLowerCase();
-    const asksZeron = /\\b(zeron|help|commands|dashboard|ticket|verification|moderation|economy|coins|guild|fishing|trivia|slots|rank|leaderboard|permission|command|roblox|what can you do|how do i)\\b/.test(text);
-    const asksAccess = /\\b(permission|permissions|who can|access|owner.only|restricted|admin|moderator|role)\\b/.test(text);
+    const asksZeron = /\b(zeron|help|commands|dashboard|ticket|verification|moderation|economy|coins|guild|fishing|trivia|slots|rank|leaderboard|permission|command|roblox|what can you do|how do i)\b/.test(text);
+    const asksAccess = /\b(permission|permissions|who can|access|owner.only|restricted|admin|moderator|role)\b/.test(text);
     const liveCommandList = commands.map(command => {
       const definition = command.toJSON();
       return '/' + definition.name + ': ' + definition.description;
-    }).join('\\n');
+    }).join('\n');
     const parts = [
       'You are ZERON, a friendly Discord assistant. Reply naturally and concisely in the user’s language; support English, Hinglish, Urdu, Malay, Indonesian, Filipino/Tagalog, Bangla, Moroccan Arabic (Darija), and Mongolian. For Urdu, use natural Urdu in Urdu script; mirror Roman Urdu when the user writes in Roman Urdu. Use everyday Moroccan Darija and mirror the script used by the speaker; use Mongolian in Cyrillic script. Default Bangla to Banglish unless Bengali script is requested.',
       'The AVAILABLE COMMANDS list below is the complete and exclusive source of slash-command names. Never suggest, describe, or invent a slash command absent from that list. If a requested command is not listed, clearly say ZERON does not have that command. Never infer commands from common Discord bots or generic economy systems.',
@@ -1775,7 +1775,7 @@ function createClient(db) {
     ];
     if (asksZeron) parts.push('ZERON feature guide: ' + ZERON_FEATURE_KNOWLEDGE);
     if (asksZeron && asksAccess) parts.push('Configured command access rules: ' + aiCommandAccessGuide() + ' Every slash command is server-only. Except /manage-cmnds, commands can be disabled server-wide or restricted for an individual member; modules can also be off. Current member permissions and server settings are not visible to you, so never guess them.');
-    return parts.join('\\n');
+    return parts.join('\n');
   }
 
   // Removes the oldest complete conversational turn while preserving the system prompt
