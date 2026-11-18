@@ -4481,6 +4481,7 @@ ${failed} could not receive coins (balance limit).` : ''}`;
         return replyPlain({ content: `✅ ${target.tag} — ${commandName} completed.`, ephemeral: true });
       }
       if (commandName === 'unban') {
+    const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.BanMembers)) return replyPlain({ content: 'You need Ban Members permission.', ephemeral: true });
         if (!guild.members.me?.permissions.has(PermissionFlagsBits.BanMembers)) return replyPlain({ content: 'ZERON lacks Ban Members permission.', ephemeral: true });
         const userId = interaction.options.getString('user_id');
