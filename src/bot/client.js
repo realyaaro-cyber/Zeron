@@ -2114,7 +2114,7 @@ function createClient(db) {
   });
   const gatewayDiagnostic = setInterval(() => {
     console.log(`Gateway diagnostic: ready=${client.isReady()} wsStatus=${client.ws?.status ?? 'unknown'} ping=${client.ws?.ping ?? 'unknown'}`);
-  }, 20000);
+  }, 60 * 60 * 1000);
   gatewayDiagnostic.unref();
 
   client.on('error', error => console.error('Discord client error:', error && error.stack ? error.stack : error));
