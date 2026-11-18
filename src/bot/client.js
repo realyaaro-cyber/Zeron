@@ -4840,11 +4840,18 @@ ${failed} could not receive coins (balance limit).` : ''}`;
       }
     } catch (error) {
       console.error(`Command /${interaction.commandName} failed:`, error);
-      const content = error.message === 'Rank card queue is full'
-        ? '⏳ Rank cards are busy right now. Please try again shortly.'
-        : `Command failed: ${error.message?.includes('Missing Permissions') ? 'Discord denied the action. Check bot permissions and role hierarchy.' : 'an unexpected error occurred. Check server logs.'}`;
-      if (interaction.replied || interaction.deferred) await interaction.followUp({ content, ephemeral: true }).catch(() => {});
-      else await interaction.reply({ content, ephemeral: true }).catch(() => {});
+      const isUnknownBan = interaction.commandName === 'unban' && Number(error.code) === 10026;
+      const content = isUnknownBan
+        ? 'This user is not currently banned in this server.'
+        : error.message === 'Rank card queue is full'
+          ? 'Rank cards are busy right now. Please try again shortly.'
+          : error.message?.includes('Missing Permissions')
+            ? 'Discord denied the action. Check bot permissions and role hierarchy.'
+            : 'Command failed: an unexpected error occurred. Check server logs.';
+      const replyPlain = interaction.__v2OriginalMethods?.reply || interaction.reply.bind(interaction);
+      const followUpPlain = interaction.__v2OriginalMethods?.followUp || interaction.followUp.bind(interaction);
+      if (interaction.replied || interaction.deferred) await followUpPlain({ content, ephemeral: true }).catch(() => {});
+      else await replyPlain({ content, ephemeral: true }).catch(() => {});
     }
   });
   return client;
