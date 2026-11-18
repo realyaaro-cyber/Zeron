@@ -847,11 +847,18 @@ function rwDraw(){
   const actions=editing
     ?'<button type="button" class="btn" id="rw-add">+ Add more</button><span class="rw-spacer"></span><button type="button" class="btn" id="rw-cancel">Cancel</button><button type="button" class="btn primary" id="rw-save">Save →</button>'
     :'<button type="button" class="btn primary" id="rw-edit">✎ Edit rewards</button>';
+  const boosterOptions='<option value="">— Disabled —</option>'+rwState.roles.map(r=>`<option value="${r.id}" ${r.id===rwState.boosterRoleId?'selected':''} ${r.assignable?'':'disabled'}>@ ${escapeHtml(r.name)}${r.assignable?'':' (ZERON cannot assign)'}</option>`).join('');
   root.innerHTML=`<div class="panel card rw-card">
     <div class="rw-top"><div><div class="eyebrow">AUTOMATION · LEVEL REWARDS</div><h3 class="rw-title">Level rewards</h3><p class="rw-sub">Roles are given automatically when members level up. Rewards stack.</p></div><div class="rw-count"><b>${count}</b><span>${count===1?'reward':'rewards'}</span></div></div>
     ${warning}${head}
     <div class="rw-list">${rwRowsHtml(grid)}</div>
     <div class="rw-actions">${actions}</div>
+    <div class="rw-booster-settings" style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line,rgba(255,255,255,.1))">
+      <div class="eyebrow">SERVER BOOSTER REWARD</div><h4 style="margin:7px 0">Automatic booster role</h4>
+      <p class="rw-sub">Give this role when a member starts boosting the server. It is removed automatically if their boost ends. This works independently from XP and level rewards.</p>
+      <div class="field" style="margin-top:14px"><label for="rw-booster-role">Booster reward role</label><select id="rw-booster-role">${boosterOptions}</select></div>
+      <div class="rw-actions"><button type="button" class="btn primary" id="rw-booster-save">Save booster reward</button></div>
+    </div>
   </div>`;
 }
 
@@ -881,6 +888,15 @@ function rwOnClick(event){
   }
   const btn=event.target.closest('button');
   if(!btn)return;
+  if(btn.id==='rw-booster-save'){
+    const roleId=document.getElementById('rw-booster-role')?.value || '';
+    btn.disabled=true;btn.textContent='Saving…';
+    api(`/api/guild/${currentGuild}/level-rewards`,{method:'PUT',body:JSON.stringify({booster_role_id:roleId})})
+      .then(data=>{rwState.boosterRoleId=data.boosterRoleId||'';toast(roleId?'Booster reward saved.':'Booster reward disabled.');rwDraw();})
+      .catch(error=>toast(error.message,true))
+      .finally(()=>{const current=document.getElementById('rw-booster-save');if(current){current.disabled=false;current.textContent='Save booster reward';}});
+    return;
+  }
   if(btn.id==='rw-edit'){rwState.editing=true;rwDraw();return}
   if(btn.id==='rw-cancel'){rwState.rows=rwState.original.map(r=>({...r}));rwState.editing=false;rwDraw();return}
   if(btn.id==='rw-add'){
@@ -900,6 +916,7 @@ async function renderRewards(){
     rwState={
       roles:data.roles,
       botCanManageRoles:data.botCanManageRoles,
+      boosterRoleId:data.boosterRoleId || '',
       editing:false,
       rows:data.rewards.map(r=>({level:r.level,role_id:r.role_id})),
       original:[]
