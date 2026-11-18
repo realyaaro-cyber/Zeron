@@ -531,20 +531,24 @@ function createDashboard({ db, client }) {
     res.json({
       rewards,
       roles,
-      botCanManageRoles: Boolean(botMember && botMember.permissions.has(PermissionFlagsBits.ManageRoles))
+      botCanManageRoles: Boolean(botMember && botMember.permissions.has(PermissionFlagsBits.ManageRoles)),
+      boosterRoleId: db.getSettings(guild.id).booster_role_id || ''
     });
   });
 
   app.put('/api/guild/:guildId/level-rewards', requireLogin, requireGuild, (req, res) => {
     try {
+      const hasRewards = Object.prototype.hasOwnProperty.call(req.body || {}, 'rewards');
+      const hasBoosterRole = Object.prototype.hasOwnProperty.call(req.body || {}, 'booster_role_id');
       const list = req.body?.rewards;
-      if (!Array.isArray(list) || list.length > 50) {
+      if (hasRewards && (!Array.isArray(list) || list.length > 50)) {
         return res.status(400).json({ error: 'Level rewards must be a list of up to 50 entries.' });
       }
+      if (!hasRewards && !hasBoosterRole) return res.status(400).json({ error: 'Nothing to save.' });
 
       const seenLevels = new Set();
       const cleaned = [];
-      for (const entry of list) {
+      for (const entry of (hasRewards ? list : [])) {
         const level = Number(entry?.level);
         const roleId = String(entry?.role_id ?? '');
 
@@ -572,9 +576,21 @@ function createDashboard({ db, client }) {
         cleaned.push({ level, roleId });
       }
 
-      cleaned.sort((a, b) => a.level - b.level);
-      db.replaceLevelRewards(req.guild.id, cleaned);
-      res.json({ ok: true, rewards: cleaned });
+      if (hasBoosterRole) {
+        const roleId = String(req.body.booster_role_id || '');
+        if (roleId) {
+          if (!/^\\d{17,20}$/.test(roleId)) return res.status(400).json({ error: 'Choose a valid booster role.' });
+          const role = req.guild.roles.cache.get(roleId);
+          if (!role) return res.status(400).json({ error: 'The booster role no longer exists. Refresh and pick another role.' });
+          if (!roleAssignable(req.guild, role)) return res.status(400).json({ error: `ZERON cannot give @${role.name}. Grant ZERON Manage Roles and move its role above @${role.name}.` });
+        }
+        db.saveSettings(req.guild.id, { booster_role_id: roleId });
+      }
+      if (hasRewards) {
+        cleaned.sort((a, b) => a.level - b.level);
+        db.replaceLevelRewards(req.guild.id, cleaned);
+      }
+      res.json({ ok: true, rewards: hasRewards ? cleaned : db.getLevelRewards(req.guild.id), boosterRoleId: db.getSettings(req.guild.id).booster_role_id || '' });
     } catch (e) {
       console.error('Level rewards save failed:', e);
       res.status(500).json({ error: 'Could not save level rewards.' });
