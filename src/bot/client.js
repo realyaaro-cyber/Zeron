@@ -1209,6 +1209,32 @@ function createClient(db) {
   client.on(Events.GuildMemberAdd, member => db.recordMemberEvent(member.guild.id, 'join'));
   client.on(Events.GuildMemberRemove, member => db.recordMemberEvent(member.guild.id, 'leave'));
 
+  // Automatically grant the configured booster role when a member starts boosting,
+  // and remove it when they stop. This is independent of XP and level-up settings.
+  client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+    try {
+      const startedBoosting = !oldMember.premiumSince && Boolean(newMember.premiumSince);
+      const stoppedBoosting = Boolean(oldMember.premiumSince) && !newMember.premiumSince;
+      if (!startedBoosting && !stoppedBoosting) return;
+      const roleId = db.getSettings(newMember.guild.id).booster_role_id;
+      if (!roleId) return;
+      const role = newMember.guild.roles.cache.get(roleId);
+      if (!role || role.managed) return;
+      const botMember = newMember.guild.members.me;
+      if (!botMember || !botMember.permissions.has(PermissionFlagsBits.ManageRoles) || role.position >= botMember.roles.highest.position) {
+        console.warn(`Booster role sync skipped in ${newMember.guild.id}: ZERON cannot manage the configured role.`);
+        return;
+      }
+      if (startedBoosting && !newMember.roles.cache.has(roleId)) {
+        await newMember.roles.add(role, 'ZERON automatic server booster reward');
+      } else if (stoppedBoosting && newMember.roles.cache.has(roleId)) {
+        await newMember.roles.remove(role, 'ZERON booster reward removed after boost ended');
+      }
+    } catch (error) {
+      console.error('Booster role reward failed:', error.message);
+    }
+  });
+
   // Birthdays: date checks, readable dates, and the daily designed announcement.
   function isValidBirthday(day, month) {
     const d = new Date(Date.UTC(2000, month - 1, day));
