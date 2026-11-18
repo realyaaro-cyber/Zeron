@@ -579,7 +579,7 @@ function createDashboard({ db, client }) {
       if (hasBoosterRole) {
         const roleId = String(req.body.booster_role_id || '');
         if (roleId) {
-          if (!/^\\d{17,20}$/.test(roleId)) return res.status(400).json({ error: 'Choose a valid booster role.' });
+          if (!/^\d{17,20}$/.test(roleId)) return res.status(400).json({ error: 'Choose a valid booster role.' });
           const role = req.guild.roles.cache.get(roleId);
           if (!role) return res.status(400).json({ error: 'The booster role no longer exists. Refresh and pick another role.' });
           if (!roleAssignable(req.guild, role)) return res.status(400).json({ error: `ZERON cannot give @${role.name}. Grant ZERON Manage Roles and move its role above @${role.name}.` });
