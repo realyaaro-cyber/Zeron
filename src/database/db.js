@@ -45,6 +45,7 @@ function initializeDatabase(filename) {
       xp_max INTEGER NOT NULL DEFAULT 20,
       levelup_enabled INTEGER NOT NULL DEFAULT 1,
       levelup_message TEXT NOT NULL DEFAULT '🎉 Congratulations {user}! You reached level {level} in {server}!',
+      booster_role_id TEXT,
       prefix TEXT NOT NULL DEFAULT '!',
       spam_enabled INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -266,6 +267,9 @@ function initializeDatabase(filename) {
 
 if (!settingsColumns.some(column => column.name === 'levelup_message')) {
 db.exec("ALTER TABLE guild_settings ADD COLUMN levelup_message TEXT NOT NULL DEFAULT '🎉 Congratulations {user}! You reached level {level} in {server}!'");
+}
+if (!settingsColumns.some(column => column.name === 'booster_role_id')) {
+  db.exec('ALTER TABLE guild_settings ADD COLUMN booster_role_id TEXT');
 }
 
   if (!settingsColumns.some(column => column.name === 'xp_channel_ids')) {
@@ -936,7 +940,7 @@ db.exec("ALTER TABLE guild_settings ADD COLUMN levelup_message TEXT NOT NULL DEF
         'welcome_enabled','welcome_channel_id','welcome_message','mod_log_channel_id',
         'bot_log_channel_id','announcement_channel_id','xp_channel_id','xp_channel_ids','personal_channel_id',
         'xp_enabled','xp_cooldown','xp_min','xp_max','levelup_enabled','levelup_message','prefix','spam_enabled','strike_enabled',
-        'module_xp','module_economy','module_fishing','module_games','module_welcome','module_invites','autorole_enabled','jail_role_id','vault_alert_enabled','vault_alert_channel_id','vault_alert_role_id','vault_alert_trigger','rank_accent'
+        'module_xp','module_economy','module_fishing','module_games','module_welcome','module_invites','autorole_enabled','jail_role_id','booster_role_id','vault_alert_enabled','vault_alert_channel_id','vault_alert_role_id','vault_alert_trigger','rank_accent'
       ]);
       const entries = Object.entries(patch).filter(([key]) => allowed.has(key));
       if (!entries.length) return this.getSettings(guildId);
