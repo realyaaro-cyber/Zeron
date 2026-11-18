@@ -1192,7 +1192,7 @@ function createClient(db) {
       : 'Nobody is ranked here yet.';
 
     const viewerRank = db.getLeaderboardRank(guild.id, viewerId, boardType);
-    const titles = { xp: '🏆 ' + guild.name + ' XP LEADERBOARD', coins: '💰 Coins Leaderboard', weekly: '📅 Weekly XP Leaderboard' };
+    const titles = { xp: '🏆 ' + guild.name + ' XP LEADERBOARD', coins: '💰 ' + guild.name + ' COINS LEADERBOARD', weekly: '📅 Weekly XP Leaderboard' };
     const embed = new EmbedBuilder()
       .setColor(db.accentColor(guild.id))
       .setTitle(titles[boardType])
