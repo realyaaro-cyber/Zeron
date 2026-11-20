@@ -305,15 +305,15 @@ function spinSlots(amount) {
     return { emojis, kind: 'triple', symbol: reels[0], multiplier: reels[0].pay, payout: Math.floor(amount * reels[0].pay) };
   }
   const hasPair = emojis.some(emoji => emojis.filter(other => other === emoji).length === 2);
-  if (hasPair) return { emojis, kind: 'pair', multiplier: 0.5, payout: Math.floor(amount / 2) };
-  return { emojis, kind: 'none', multiplier: 0.7, payout: Math.floor(amount * 7 / 10) };
+  if (hasPair) return { emojis, kind: 'pair', multiplier: 0.8, payout: Math.floor(amount * 4 / 5) };
+  return { emojis, kind: 'none', multiplier: 0.5, payout: Math.floor(amount / 2) };
 }
 
 function slotsWagerPrompt() {
   const paytable = SLOT_SYMBOLS.slice().reverse()
     .map(symbol => symbol.emoji + symbol.emoji + symbol.emoji + ' x' + symbol.pay)
     .join('  ·  ');
-  return '🎰 **Choose your wager**\nPaytable: ' + paytable + '\nAny pair: half your bet returned.\nNo match: 70% of your bet returned.';
+  return '🎰 **Choose your wager**\nPaytable: ' + paytable + '\nAny pair: 80% of your bet returned.\nNo match: 50% of your bet returned.';
 }
 
 function slotsEmbed(amount, spin, balance) {
@@ -321,8 +321,8 @@ function slotsEmbed(amount, spin, balance) {
   const outcome = spin.kind === 'triple'
     ? '🎉 JACKPOT! Three ' + spin.symbol.emoji + ' pays x' + spin.multiplier
     : spin.kind === 'pair'
-      ? '✨ A pair! Half your bet is returned.'
-      : '💤 No match. 70% of your bet is returned.';
+      ? '✨ A pair! 80% of your bet is returned.'
+      : '💤 No match. 50% of your bet is returned.';
   const color = net > 0 ? 0x22c55e : net === 0 ? 0xf5c542 : 0xef4444;
   return new EmbedBuilder()
     .setColor(color)
