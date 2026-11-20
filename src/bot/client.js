@@ -280,12 +280,12 @@ async function grantLevelRewards(db, message, level) {
 const SLOT_WAGERS = [100, 250, 500, 1000, 2500, 5000, 10000];
 
 const SLOT_SYMBOLS = [
-  { emoji: '🍒', weight: 30, pay: 6 },
-  { emoji: '🍋', weight: 25, pay: 8 },
-  { emoji: '🍇', weight: 20, pay: 13 },
-  { emoji: '⭐', weight: 12, pay: 25 },
-  { emoji: '💎', weight: 8, pay: 55 },
-  { emoji: '7️⃣', weight: 5, pay: 100 }
+  { emoji: '🍒', weight: 30, pay: 4.5 },
+  { emoji: '🍋', weight: 25, pay: 6 },
+  { emoji: '🍇', weight: 20, pay: 10 },
+  { emoji: '⭐', weight: 12, pay: 19 },
+  { emoji: '💎', weight: 8, pay: 41 },
+  { emoji: '7️⃣', weight: 5, pay: 75 }
 ];
 
 function pickSlotSymbol() {
@@ -302,18 +302,18 @@ function spinSlots(amount) {
   const reels = Array.from({ length: 3 }, () => pickSlotSymbol());
   const emojis = reels.map(reel => reel.emoji);
   if (emojis[0] === emojis[1] && emojis[1] === emojis[2]) {
-    return { emojis, kind: 'triple', symbol: reels[0], multiplier: reels[0].pay, payout: amount * reels[0].pay };
+    return { emojis, kind: 'triple', symbol: reels[0], multiplier: reels[0].pay, payout: Math.floor(amount * reels[0].pay) };
   }
   const hasPair = emojis.some(emoji => emojis.filter(other => other === emoji).length === 2);
-  if (hasPair) return { emojis, kind: 'pair', multiplier: 1, payout: amount };
-  return { emojis, kind: 'none', multiplier: 0, payout: 0 };
+  if (hasPair) return { emojis, kind: 'pair', multiplier: 0.5, payout: Math.floor(amount / 2) };
+  return { emojis, kind: 'none', multiplier: 0.7, payout: Math.floor(amount * 7 / 10) };
 }
 
 function slotsWagerPrompt() {
   const paytable = SLOT_SYMBOLS.slice().reverse()
     .map(symbol => symbol.emoji + symbol.emoji + symbol.emoji + ' x' + symbol.pay)
     .join('  ·  ');
-  return '🎰 **Choose your wager**\nPaytable: ' + paytable + '\nAny pair: your bet is returned.';
+  return '🎰 **Choose your wager**\nPaytable: ' + paytable + '\nAny pair: half your bet returned.\nNo match: 70% of your bet returned.';
 }
 
 function slotsEmbed(amount, spin, balance) {
@@ -321,8 +321,8 @@ function slotsEmbed(amount, spin, balance) {
   const outcome = spin.kind === 'triple'
     ? '🎉 JACKPOT! Three ' + spin.symbol.emoji + ' pays x' + spin.multiplier
     : spin.kind === 'pair'
-      ? '✨ A pair! Your bet is returned.'
-      : '💤 No match this time.';
+      ? '✨ A pair! Half your bet is returned.'
+      : '💤 No match. 70% of your bet is returned.';
   const color = net > 0 ? 0x22c55e : net === 0 ? 0xf5c542 : 0xef4444;
   return new EmbedBuilder()
     .setColor(color)
