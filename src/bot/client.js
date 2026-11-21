@@ -3249,6 +3249,8 @@ const fishWaitMessages = new Map();
       }
       const app = db.getVerificationApplication(Number(appIdText));
       if (!app || app.status !== 'pending') return replyVerificationNotice(interaction, 'This application was already reviewed.');
+      // Acknowledge the button immediately; role changes and message edits can take longer than Discord's 3-second interaction window.
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const guild = interaction.guild;
       const cfg = db.getVerificationConfig(app.guild_id);
       const target = await guild.members.fetch(app.user_id).catch(() => null);
@@ -3281,7 +3283,29 @@ const fishWaitMessages = new Map();
         .addFields(app.answers.map(item => ({ name: String(item.question || 'Question').slice(0, 256), value: String(item.answer || '-').slice(0, 1024) })))
         .addFields({ name: approve ? 'Approved' : 'Rejected', value: 'By <@' + interaction.user.id + '>' })
         .setFooter({ text: 'This application has been reviewed.' });
-      await interaction.update(toV2Payload({ embeds: [updated], components: [] }));
+      const reviewPayload = toV2Payload({ embeds: [updated], components: [] });
+      try {
+        // Edit the persistent review message directly instead of relying on the short-lived button interaction.
+        await interaction.message.edit(reviewPayload);
+      } catch (error) {
+        console.error('Verification review card update failed; retrying from channel:', error.message);
+        const reviewChannel = await guild.channels.fetch(interaction.channelId).catch(() => null);
+        const reviewMessage = reviewChannel && typeof reviewChannel.messages?.fetch === 'function'
+          ? await reviewChannel.messages.fetch(interaction.message.id).catch(() => null)
+          : null;
+        if (!reviewMessage) {
+          console.error('Verification review card fallback failed: review message could not be fetched.');
+          await interaction.editReply({ content: 'The application was recorded as reviewed, but Discord would not update the review card. Please refresh the channel; contact an administrator if it still shows pending.' });
+          return null;
+        }
+        try {
+          await reviewMessage.edit(reviewPayload);
+        } catch (fallbackError) {
+          console.error('Verification review card fallback failed:', fallbackError.message);
+          await interaction.editReply({ content: 'The application was recorded as reviewed, but Discord could not update the review card. Please check the bot\'s channel permissions.' });
+          return null;
+        }
+      }
 
       if (target) {
         const dmCard = textCard(
@@ -3292,6 +3316,7 @@ const fishWaitMessages = new Map();
         );
         sendVerificationDm(target, dmCard).catch(() => {});
       }
+      await interaction.editReply({ content: approve ? '✅ Verification approved successfully.' : '❌ Verification application rejected.' });
       return null;
     }
 
