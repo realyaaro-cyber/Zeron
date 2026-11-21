@@ -38,6 +38,7 @@ const commands = [
 
   new SlashCommandBuilder().setName('poll')
     .setDescription('Create and manage server polls.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
     .addStringOption(o => o.setName('action').setDescription('Choose what to do with polls').setRequired(true)
       .addChoices(
         { name: 'Create', value: 'create' },
